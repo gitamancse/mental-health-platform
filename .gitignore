@@ -1,0 +1,83 @@
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+
+# Virtual Environments
+env/
+venv/
+ENV/
+venv_api/
+.venv/
+
+# Environment Variables
+.env
+.env.*
+*.env
+
+# Testing / Coverage
+htmlcov/
+.tox/
+.nox/
+.coverage
+.coverage.*
+.cache
+coverage.xml
+*.cover
+.pytest_cache/
+
+# Logs
+*.log
+logs/
+*.out
+*.err
+
+# IDEs / Editors
+.vscode/
+.idea/
+*.swp
+*.swo
+.DS_Store
+
+# Database
+*.sqlite3
+*.db
+*.db-journal
+
+# FastAPI / Uvicorn
+*.pid
+*.sock
+
+# Build / Distribution
+build/
+dist/
+*.egg-info/
+.eggs/
+*.egg
+*.whl
+
+# Static / Media
+media/
+uploads/
+staticfiles/
+
+# Alembic
+alembic/versions/*.pyc
+
+# Jupyter Notebook
+.ipynb_checkpoints/
+
+# Secrets / Keys
+*.pem
+*.key
+*.crt
+
+# Docker
+docker-compose.override.yml
+
+# Misc
+*.tmp
+*.bak
+*.old
