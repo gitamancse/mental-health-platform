@@ -1,0 +1,135 @@
+# =========================
+# CREATE FOLDERS
+# =========================
+mkdir -Force `
+app, app\core, app\db, `
+app\modules\auth\models, app\modules\auth\routers, app\modules\auth\schemas, app\modules\auth\services, `
+app\modules\executive\models, app\modules\executive\routers, app\modules\executive\schemas, app\modules\executive\services, `
+app\modules\provider\models, app\modules\provider\routers, app\modules\provider\schemas, app\modules\provider\services, `
+app\modules\client\models, app\modules\client\routers, app\modules\client\schemas, app\modules\client\services, `
+app\modules\sessions\models, app\modules\sessions\routers, app\modules\sessions\schemas, app\modules\sessions\services, `
+app\modules\social\models, app\modules\social\routers, app\modules\social\schemas, app\modules\social\services, `
+app\modules\referrals\models, app\modules\referrals\routers, app\modules\referrals\schemas, app\modules\referrals\services, `
+app\modules\analytics\models, app\modules\analytics\routers, app\modules\analytics\schemas, app\modules\analytics\services, `
+app\modules\websites\models, app\modules\websites\routers, app\modules\websites\schemas, app\modules\websites\services, `
+app\modules\payments\models, app\modules\payments\routers, app\modules\payments\schemas, app\modules\payments\services, `
+app\utils, app\middleware, alembic\versions, `
+tests\test_auth, tests\test_provider, tests\test_client, `
+scripts, logs, docs | Out-Null
+
+
+# =========================
+# CREATE FILES
+# =========================
+$files = @(
+'.env','.env.example','.gitignore','requirements.txt','pyproject.toml','README.md',
+'docker-compose.yml','Dockerfile','alembic.ini',
+
+'app\__init__.py','app\main.py',
+
+'app\core\__init__.py','app\core\config.py','app\core\security.py',
+'app\core\dependencies.py','app\core\constants.py','app\core\exceptions.py',
+
+'app\db\__init__.py','app\db\base.py','app\db\session.py',
+
+# AUTH
+'app\modules\auth\models\auth_model.py',
+'app\modules\auth\routers\auth_router.py',
+'app\modules\auth\schemas\auth_schema.py',
+'app\modules\auth\services\auth_service.py',
+
+# EXECUTIVE
+'app\modules\executive\models\executive_model.py',
+'app\modules\executive\routers\executive_router.py',
+'app\modules\executive\schemas\executive_schema.py',
+'app\modules\executive\services\executive_service.py',
+
+# PROVIDER (ENHANCED)
+'app\modules\provider\models\provider_model.py',
+'app\modules\provider\models\license_model.py',
+'app\modules\provider\models\subscription_model.py',
+'app\modules\provider\models\education_model.py',
+
+'app\modules\provider\routers\provider_router.py',
+'app\modules\provider\routers\license_router.py',
+'app\modules\provider\routers\subscription_router.py',
+'app\modules\provider\routers\education_router.py',
+
+'app\modules\provider\schemas\provider_schema.py',
+'app\modules\provider\schemas\license_schema.py',
+'app\modules\provider\schemas\subscription_schema.py',
+'app\modules\provider\schemas\education_schema.py',
+
+'app\modules\provider\services\provider_service.py',
+'app\modules\provider\services\license_service.py',
+'app\modules\provider\services\subscription_service.py',
+'app\modules\provider\services\education_service.py',
+
+# CLIENT (WITH SUBSCRIPTION)
+'app\modules\client\models\client_model.py',
+'app\modules\client\models\subscription_model.py',
+
+'app\modules\client\routers\client_router.py',
+'app\modules\client\routers\subscription_router.py',
+
+'app\modules\client\schemas\client_schema.py',
+'app\modules\client\schemas\subscription_schema.py',
+
+'app\modules\client\services\client_service.py',
+'app\modules\client\services\subscription_service.py',
+
+# PAYMENTS
+'app\modules\payments\models\payment_model.py',
+'app\modules\payments\routers\payment_router.py',
+'app\modules\payments\schemas\payment_schema.py',
+'app\modules\payments\services\payment_service.py',
+
+# OTHER MODULES
+'app\modules\sessions\models\session_model.py',
+'app\modules\sessions\routers\session_router.py',
+'app\modules\sessions\schemas\session_schema.py',
+'app\modules\sessions\services\session_service.py',
+
+'app\modules\social\models\social_model.py',
+'app\modules\social\routers\social_router.py',
+'app\modules\social\schemas\social_schema.py',
+'app\modules\social\services\social_service.py',
+
+'app\modules\referrals\models\referral_model.py',
+'app\modules\referrals\routers\referral_router.py',
+'app\modules\referrals\schemas\referral_schema.py',
+'app\modules\referrals\services\referral_service.py',
+
+'app\modules\analytics\models\analytics_model.py',
+'app\modules\analytics\routers\analytics_router.py',
+'app\modules\analytics\schemas\analytics_schema.py',
+'app\modules\analytics\services\analytics_service.py',
+
+'app\modules\websites\models\website_model.py',
+'app\modules\websites\routers\website_router.py',
+'app\modules\websites\schemas\website_schema.py',
+'app\modules\websites\services\website_service.py',
+
+# UTILS + MIDDLEWARE
+'app\utils\__init__.py',
+'app\utils\geolocation.py',
+'app\utils\validators.py',
+'app\utils\email.py',
+'app\utils\file_storage.py',
+'app\middleware\logging.py',
+
+# ALEMBIC
+'alembic\env.py','alembic\script.py.mako',
+
+# TESTS
+'tests\__init__.py','tests\conftest.py',
+
+# DOCS
+'docs\architecture.md','docs\api_spec.md','docs\database_schema.md','docs\deployment.md'
+)
+
+foreach ($f in $files) {
+    New-Item -Force -Path $f -ItemType File | Out-Null
+}
+
+Write-Host "Clean Domain-Driven Structure Ready!" -ForegroundColor Green
