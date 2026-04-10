@@ -97,7 +97,21 @@ class User(Base):
     documents: Mapped[List["ProviderDocument"]] = relationship(
         "ProviderDocument", back_populates="user", cascade="all, delete-orphan"
     )
-
+    
+    provider_registration: Mapped[Optional["ProviderRegistration"]] = relationship(
+        "ProviderRegistration",
+        back_populates="user",
+        uselist=False,
+        cascade="all, delete-orphan",
+        foreign_keys="ProviderRegistration.user_id"
+    )
+    # In your User model
+    admin_actions_performed: Mapped[List["AdminAction"]] = relationship(
+        "AdminAction", back_populates="admin", foreign_keys="AdminAction.admin_id"
+    )
+    admin_actions_received: Mapped[List["AdminAction"]] = relationship(
+        "AdminAction", back_populates="target_user", foreign_keys="AdminAction.user_id"
+    )
     def __repr__(self) -> str:
         return f"<User {self.email} ({self.role.value})>"
 
@@ -152,7 +166,8 @@ class ProviderProfile(Base):
     accepting_new_clients: Mapped[bool] = mapped_column(Boolean, default=True, nullable=False)
     is_published: Mapped[bool] = mapped_column(Boolean, default=False, nullable=False)
     publish_requested_at: Mapped[Optional[datetime]] = mapped_column(DateTime(timezone=True), nullable=True)
-
+    profile_status: Mapped[str] = mapped_column(String(20), default="draft", nullable=False) # draft, pending, published
+    published_at: Mapped[Optional[datetime]] = mapped_column(DateTime(timezone=True), nullable=True)
     average_rating: Mapped[Optional[float]] = mapped_column(Float, default=0.0, nullable=True)
     total_reviews: Mapped[int] = mapped_column(Integer, default=0, nullable=False)
 

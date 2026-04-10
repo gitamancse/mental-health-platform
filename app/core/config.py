@@ -54,7 +54,18 @@ class Settings(BaseSettings):
                 path=self.POSTGRES_DB,
             )
         )
+    # -------------------------
+    # AZURE BLOB STORAGE
+    # -------------------------
+    AZURE_STORAGE_ACCOUNT_NAME: str
+    AZURE_CONTAINER_NAME: str
+    AZURE_STORAGE_CONNECTION_STRING: str
 
+    @computed_field
+    @property
+    def AZURE_BLOB_URL(self) -> str:
+        """Returns the base URL for Azure Blob Storage"""
+        return f"https://{self.AZURE_STORAGE_ACCOUNT_NAME}.blob.core.windows.net/{self.AZURE_STORAGE_CONTAINER_NAME}"
     # -------------------------
     # REDIS (Optional)
     # -------------------------

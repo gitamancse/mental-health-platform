@@ -42,15 +42,15 @@ async def register_client_endpoint(
     return {"access_token": token, "token_type": "bearer"}
 
 
-@auth_router.post("/register/provider", response_model=Token)
-async def register_provider_endpoint(
-    payload: RegisterProviderRequest,
-    db: Session = Depends(get_db),
-    background_tasks: BackgroundTasks = None,
-):
-    user = register_provider(db, payload, background_tasks)
-    token, _ = create_access_token(user)
-    return {"access_token": token, "token_type": "bearer"}
+# @auth_router.post("/register/provider", response_model=Token)
+# async def register_provider_endpoint(
+#     payload: RegisterProviderRequest,
+#     db: Session = Depends(get_db),
+#     background_tasks: BackgroundTasks = None,
+# ):
+#     user = register_provider(db, payload, background_tasks)
+#     token, _ = create_access_token(user)
+#     return {"access_token": token, "token_type": "bearer"}
 
 
 @auth_router.post("/admin/register/admin", response_model=MessageResponse)
