@@ -14,7 +14,7 @@ from app.modules.auth.schemas.auth_schema import (
     ForgotPasswordRequest,
     ResetPasswordRequest,
     VerifyEmailRequest,
-    VerifyEmailResponse,
+    VerifyEmailResponse
 )
 from app.modules.auth.services.auth_service import (
     register_client,
@@ -26,6 +26,7 @@ from app.modules.auth.services.auth_service import (
     create_password_reset_token,
     reset_user_password,
     blacklist_token,
+    AuthService
 )
 from app.modules.users.models.user_model import User, UserRole
 
@@ -43,15 +44,15 @@ async def register_client_endpoint(
     return {"access_token": token, "token_type": "bearer"}
 
 
-@auth_router.post("/register/provider", response_model=Token)
-async def register_provider_endpoint(
-    payload: RegisterProviderRequest,
-    db: Session = Depends(get_db),
-    background_tasks: BackgroundTasks = None,
-):
-    user = register_provider(db, payload, background_tasks)
-    token, _ = create_access_token(user)
-    return {"access_token": token, "token_type": "bearer"}
+# @auth_router.post("/register/provider", response_model=Token)
+# async def register_provider_endpoint(
+#     payload: RegisterProviderRequest,
+#     db: Session = Depends(get_db),
+#     background_tasks: BackgroundTasks = None,
+# ):
+#     user = register_provider(db, payload, background_tasks)
+#     token, _ = create_access_token(user)
+#     return {"access_token": token, "token_type": "bearer"}
 
 
 @auth_router.post("/admin/register/admin", response_model=MessageResponse)
@@ -123,3 +124,26 @@ async def forgot_password(
 async def reset_password(payload: ResetPasswordRequest, db: Session = Depends(get_db)):
     reset_user_password(db, payload.token, payload.new_password)
     return {"message": "Password reset successfully"}
+@auth_router.post("/password-reset/request")
+async def request_reset(email: str, db: Session = Depends(get_db)):
+    return await AuthService.request_password_reset(db, email)
+
+@auth_router.post("/password-reset/confirm")
+async def confirm_reset(token: str, new_password: str, db: Session = Depends(get_db)):
+    return await AuthService.reset_password(db, token, new_password)
+
+@auth_router.get("/mfa/setup")
+async def setup_mfa(current_user: User = Depends(get_current_user), db: Session = Depends(get_db)):
+    secret, uri = AuthService.generate_mfa_secret(current_user)
+    # Save secret to user (but don't enable MFA yet)
+    current_user.verification_code = secret # Reusing column or add 'mfa_secret'
+    db.commit()
+    return {"qr_code_uri": uri, "secret": secret}
+
+@auth_router.post("/mfa/enable")
+async def enable_mfa(code: str, current_user: User = Depends(get_current_user), db: Session = Depends(get_db)):
+    if AuthService.verify_mfa_code(current_user.verification_code, code):
+        current_user.mfa_enabled = True
+        db.commit()
+        return {"message": "MFA enabled successfully"}
+    raise HTTPException(status_code=400, detail="Invalid MFA code")

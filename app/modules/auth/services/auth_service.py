@@ -1,3 +1,4 @@
+# app/modules/auth/services/auth_service.py
 from fastapi import HTTPException, BackgroundTasks
 from sqlalchemy.orm import Session
 from datetime import datetime, timedelta
@@ -17,6 +18,7 @@ from app.modules.auth.schemas.auth_schema import (
 from app.utils.email import send_email
 
 
+# Password hashing (Argon2id - best for healthcare)
 pwd_context = CryptContext(schemes=["argon2"], deprecated="auto")
 
 SECRET_KEY = settings.JWT_SECRET_KEY
@@ -33,8 +35,10 @@ def verify_password(plain_password: str, hashed_password: str) -> bool:
 
 
 def create_access_token(user: User) -> tuple[str, str]:
+    """Create JWT with JTI for secure logout"""
     jti = secrets.token_hex(16)
     expire = datetime.utcnow() + timedelta(minutes=ACCESS_TOKEN_EXPIRE_MINUTES)
+
     payload = {
         "sub": user.email,
         "user_id": str(user.id),
@@ -48,14 +52,21 @@ def create_access_token(user: User) -> tuple[str, str]:
 
 
 def blacklist_token(db: Session, token: str, user_id: str) -> None:
+    """Blacklist JWT after logout"""
     try:
         payload = jwt.decode(token, SECRET_KEY, algorithms=[ALGORITHM])
         jti = payload.get("jti")
         expires_at = datetime.fromtimestamp(payload.get("exp"))
-        db.add(BlacklistedToken(jti=jti, user_id=user_id, expires_at=expires_at))
+
+        db.add(BlacklistedToken(
+            jti=jti,
+            user_id=user_id,
+            expires_at=expires_at
+        ))
         db.commit()
     except Exception:
         pass
+
 
 def is_token_blacklisted(db: Session, jti: str) -> bool:
     """Check if token has been revoked"""
@@ -65,6 +76,8 @@ def is_token_blacklisted(db: Session, jti: str) -> bool:
     ).first()
     return token is not None
 
+
+# ====================== AUTHENTICATE USER (kept for login) ======================
 def authenticate_user(db: Session, email: str, password: str) -> User | None:
     user = db.query(User).filter(User.email == email).first()
     if not user or not verify_password(password, user.hashed_password):
@@ -94,6 +107,7 @@ def register_client(db: Session, payload: RegisterClientRequest, background_task
     db.commit()
     db.refresh(user)
 
+    from app.modules.users.models.user_model import ClientProfile
     db.add(ClientProfile(user_id=user.id))
     db.commit()
 
@@ -118,6 +132,8 @@ def register_provider(db: Session, payload: RegisterProviderRequest, background_
     db.add(user)
     db.commit()
     db.refresh(user)
+
+    from app.modules.users.models.user_model import ProviderProfile, ProviderLicense
 
     profile = ProviderProfile(
         user_id=user.id,
@@ -164,6 +180,7 @@ def register_admin(db: Session, payload: RegisterAdminRequest, background_tasks:
     db.commit()
     db.refresh(user)
 
+    from app.modules.users.models.user_model import AdminProfile
     db.add(AdminProfile(
         user_id=user.id,
         admin_title=payload.admin_title,
@@ -264,3 +281,55 @@ def reset_user_password(db: Session, token: str, new_password: str) -> None:
     user.password_reset_expiry = None
     user.password_changed_at = datetime.utcnow()
     db.commit()
+    
+import secrets
+import pyotp
+from datetime import datetime, timezone
+from app.core.email import EmailService   
+class AuthService:
+    @staticmethod
+    async def request_password_reset(db: Session, email: str):
+        user = db.query(User).filter(User.email == email).first()
+        if not user:
+            # For security, don't reveal if the email exists
+            return {"message": "If this email exists, a reset link has been sent."}
+
+        token = secrets.token_urlsafe(32)
+        user.password_reset_token = token
+        user.password_reset_expiry = datetime.now(timezone.utc) + timedelta(hours=1)
+        db.commit()
+
+        await EmailService.send_password_reset_email(user.email, token)
+        return {"message": "Reset link sent."}
+
+    @staticmethod
+    async def reset_password(db: Session, token: str, new_password: str):
+        user = db.query(User).filter(
+            User.password_reset_token == token,
+            User.password_reset_expiry > datetime.now(timezone.utc)
+        ).first()
+
+        if not user:
+            raise HTTPException(status_code=400, detail="Invalid or expired token")
+
+        user.hashed_password = get_password_hash(new_password)
+        user.password_reset_token = None # Clear token
+        user.password_reset_expiry = None
+        user.password_changed_at = datetime.now(timezone.utc)
+        db.commit()
+        return {"message": "Password updated successfully."}
+    @staticmethod
+    def generate_mfa_secret(user: User):
+        # Generate a random secret for the user
+        secret = pyotp.random_base32()
+        # Create a provisioning URI for QR codes
+        uri = pyotp.totp.TOTP(secret).provisioning_uri(
+            name=user.email, 
+            issuer_name="BTT Platform"
+        )
+        return secret, uri
+
+    @staticmethod
+    def verify_mfa_code(secret: str, code: str):
+        totp = pyotp.totp.TOTP(secret)
+        return totp.verify(code)

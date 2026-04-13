@@ -23,6 +23,8 @@ from app.modules.organizations.routers.organization_router import org_router
 from app.modules.executive.routers.executive_router import executive_router
 from app.modules.provider.routers.provider_router import provider_router
 from app.modules.provider.routers.education_router import education_router
+from app.modules.provider.routers.registration_router import router as provider_registration_router
+from app.modules.provider.routers.admin_router import router as admin_provider_router
 from app.modules.client.routers.client_router import client_router
 
 Base.metadata.create_all(bind=engine)
@@ -83,6 +85,8 @@ if getattr(settings, "ENABLE_PROVIDER_ROUTERS", True):
         {"name": "Provider|Licenses", "description": "State licenses & verification"},
         {"name": "Provider|Education", "description": "Degrees, certifications, CME"},
         {"name": "Provider|Subscription", "description": "Provider billing & premium features"},
+        {"name": "Provider Onboarding", "description": "Provider registration, NPI verification"},
+        {"name": "Admin - Provider Management", "description": "Admin approvals, rejections, audit logs"},
     ])
 
 if getattr(settings, "ENABLE_CLIENT_ROUTERS", True):
@@ -161,6 +165,8 @@ if getattr(settings, "ENABLE_PROVIDER_ROUTERS", True):
         prefix="/api/provider/education",
         tags=["Provider|Education"]
     )
+    app.include_router(provider_registration_router, prefix="/api", tags=["Provider Onboarding"])
+    app.include_router(admin_provider_router, prefix="/api", tags=["Admin - Provider Management"])
 
 if getattr(settings, "ENABLE_CLIENT_ROUTERS", True):
     app.include_router(client_router, prefix="/api/client", tags=["Client"])
