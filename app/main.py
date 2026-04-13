@@ -18,6 +18,7 @@ import app.db.models  # triggers all model imports for Alembic
 
 # ── Router Imports ─────────────────────────────────────────────────────────────
 from app.modules.auth.routers.auth_router import auth_router
+from app.modules.assessments.routers.assessment_router import router as assessment_router
 from app.modules.users.routers.user_router import user_router
 from app.modules.organizations.routers.organization_router import org_router
 from app.modules.executive.routers.executive_router import executive_router
@@ -148,6 +149,8 @@ app.add_middleware(
 
 if getattr(settings, "ENABLE_AUTH_ROUTERS", True):
     app.include_router(auth_router, prefix="/api", tags=["Authentication"])
+
+app.include_router(assessment_router)
 
 if getattr(settings, "ENABLE_USER_ROUTERS", True):
     app.include_router(user_router, prefix="/api", tags=["Users"])
