@@ -1,0 +1,119 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <title>{{APP_TITLE}} – Swagger UI</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/swagger-ui-dist@4.18.3/swagger-ui.css" />
+  <script src="https://cdn.jsdelivr.net/npm/swagger-ui-dist@4.18.3/swagger-ui-bundle.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/swagger-ui-dist@4.18.3/swagger-ui-standalone-preset.js"></script>
+
+  <style>
+    body { margin: 0; padding: 0; }
+    #swagger-ui { height: 100vh; }
+    .topbar { display: none !important; }
+  </style>
+</head>
+<body>
+  <div id="swagger-ui">Loading Swagger UI…</div>
+
+  <script>
+    (async function () {
+      function loadScript(src) {
+        return new Promise((resolve, reject) => {
+          const s = document.createElement("script");
+          s.src = src;
+          s.async = false;
+          s.onload = () => resolve(src);
+          s.onerror = () => reject(new Error("Failed to load " + src));
+          document.head.appendChild(s);
+        });
+      }
+
+      const ts = Date.now();
+
+      // If you have the plugin locally, this path must be served by StaticFiles.
+      // If you do not have it locally, use the CDN only.
+      let pluginLoaded = false;
+
+      try {
+        await loadScript(`out_files/swagger-plugins/swagger-ui-plugin-hierarchical-tags.js?cb=${ts}`);
+        pluginLoaded = true;
+      } catch (e) {
+        console.warn("Local hierarchical-tags plugin not loaded:", e);
+      }
+
+      if (!pluginLoaded) {
+        try {
+          await loadScript("https://cdn.jsdelivr.net/npm/swagger-ui-plugin-hierarchical-tags@1.0.4/dist/swagger-ui-plugin-hierarchical-tags.js");
+          pluginLoaded = true;
+        } catch (e) {
+          console.warn("CDN hierarchical-tags plugin not loaded:", e);
+        }
+      }
+
+      const res = await fetch("{{OPENAPI_URL}}");
+      const spec = await res.json();
+
+      // Normalize tags so the plugin can build the hierarchy properly
+      try {
+        const used = new Set();
+
+        for (const p of Object.keys(spec.paths || {})) {
+          const methods = spec.paths[p] || {};
+          for (const m of Object.keys(methods)) {
+            const op = methods[m];
+            if (!op) continue;
+
+            let tagsArr = Array.isArray(op.tags) ? op.tags.slice() : (op.tags ? [op.tags] : []);
+            if (!tagsArr.length) continue;
+
+            tagsArr.sort((a, b) => (
+              (String(b).match(/\|/g) || []).length - (String(a).match(/\|/g) || []).length
+            ));
+
+            const best = String(tagsArr[0]);
+            op.tags = [best];
+            used.add(best);
+          }
+        }
+
+        spec.tags = Array.from(used).sort().map((t) => ({ name: t, description: "" }));
+      } catch (e) {
+        console.error("Tag normalization failed:", e);
+      }
+
+      window.ui = SwaggerUIBundle({
+        spec: spec,
+        dom_id: "#swagger-ui",
+        deepLinking: true,
+        displayRequestDuration: true,
+        filter: true,
+        presets: [SwaggerUIBundle.presets.apis, SwaggerUIStandalonePreset],
+        plugins: [SwaggerUIBundle.plugins.DownloadUrl],
+        layout: "StandaloneLayout",
+      });
+
+      function tryRunTransform(attemptsLeft) {
+        try {
+          if (window.transformHierarchicalTags && typeof window.transformHierarchicalTags === "function") {
+            window.transformHierarchicalTags(5000);
+            return;
+          }
+        } catch (e) {
+          console.error("transformHierarchicalTags error:", e);
+        }
+
+        if (attemptsLeft > 0) {
+          setTimeout(() => tryRunTransform(attemptsLeft - 1), 200);
+        } else {
+          console.error("Hierarchical tags transform was not found.");
+        }
+      }
+
+      tryRunTransform(30);
+    })();
+  </script>
+</body>
+</html>
