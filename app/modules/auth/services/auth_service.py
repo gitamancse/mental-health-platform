@@ -1,4 +1,3 @@
-# app/modules/auth/services/auth_service.py
 from fastapi import HTTPException, BackgroundTasks
 from sqlalchemy.orm import Session
 from datetime import datetime, timedelta
@@ -7,7 +6,8 @@ import secrets
 from passlib.context import CryptContext
 
 from app.core.config import settings
-from app.modules.users.models.user_model import User, UserRole, AccountStatus
+from app.modules.users.models.user_model import User, UserRole, AccountStatus, AdminProfile, ProviderProfile
+from app.modules.client.models.client_model import ClientProfile
 from app.modules.auth.models.auth_model import BlacklistedToken
 from app.modules.auth.schemas.auth_schema import (
     RegisterClientRequest,
@@ -17,7 +17,6 @@ from app.modules.auth.schemas.auth_schema import (
 from app.utils.email import send_email
 
 
-# Password hashing (Argon2id - best for healthcare)
 pwd_context = CryptContext(schemes=["argon2"], deprecated="auto")
 
 SECRET_KEY = settings.JWT_SECRET_KEY
@@ -34,10 +33,8 @@ def verify_password(plain_password: str, hashed_password: str) -> bool:
 
 
 def create_access_token(user: User) -> tuple[str, str]:
-    """Create JWT with JTI for secure logout"""
     jti = secrets.token_hex(16)
     expire = datetime.utcnow() + timedelta(minutes=ACCESS_TOKEN_EXPIRE_MINUTES)
-
     payload = {
         "sub": user.email,
         "user_id": str(user.id),
@@ -51,21 +48,14 @@ def create_access_token(user: User) -> tuple[str, str]:
 
 
 def blacklist_token(db: Session, token: str, user_id: str) -> None:
-    """Blacklist JWT after logout"""
     try:
         payload = jwt.decode(token, SECRET_KEY, algorithms=[ALGORITHM])
         jti = payload.get("jti")
         expires_at = datetime.fromtimestamp(payload.get("exp"))
-
-        db.add(BlacklistedToken(
-            jti=jti,
-            user_id=user_id,
-            expires_at=expires_at
-        ))
+        db.add(BlacklistedToken(jti=jti, user_id=user_id, expires_at=expires_at))
         db.commit()
     except Exception:
         pass
-
 
 def is_token_blacklisted(db: Session, jti: str) -> bool:
     """Check if token has been revoked"""
@@ -75,8 +65,6 @@ def is_token_blacklisted(db: Session, jti: str) -> bool:
     ).first()
     return token is not None
 
-
-# ====================== AUTHENTICATE USER (kept for login) ======================
 def authenticate_user(db: Session, email: str, password: str) -> User | None:
     user = db.query(User).filter(User.email == email).first()
     if not user or not verify_password(password, user.hashed_password):
@@ -86,7 +74,7 @@ def authenticate_user(db: Session, email: str, password: str) -> User | None:
     return user
 
 
-# ====================== REGISTRATION (NEW - Role Specific) ======================
+# ====================== REGISTRATION ======================
 def register_client(db: Session, payload: RegisterClientRequest, background_tasks: BackgroundTasks) -> User:
     if db.query(User).filter(User.email == payload.email).first():
         raise HTTPException(status_code=409, detail="Email already registered")
@@ -106,7 +94,6 @@ def register_client(db: Session, payload: RegisterClientRequest, background_task
     db.commit()
     db.refresh(user)
 
-    from app.modules.users.models.user_model import ClientProfile
     db.add(ClientProfile(user_id=user.id))
     db.commit()
 
@@ -131,8 +118,6 @@ def register_provider(db: Session, payload: RegisterProviderRequest, background_
     db.add(user)
     db.commit()
     db.refresh(user)
-
-    from app.modules.users.models.user_model import ProviderProfile, ProviderLicense
 
     profile = ProviderProfile(
         user_id=user.id,
@@ -179,7 +164,6 @@ def register_admin(db: Session, payload: RegisterAdminRequest, background_tasks:
     db.commit()
     db.refresh(user)
 
-    from app.modules.users.models.user_model import AdminProfile
     db.add(AdminProfile(
         user_id=user.id,
         admin_title=payload.admin_title,
