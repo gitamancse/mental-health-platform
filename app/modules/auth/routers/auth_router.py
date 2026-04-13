@@ -1,3 +1,4 @@
+# app\modules\auth\routers\auth_router.py
 from fastapi import APIRouter, Depends, HTTPException, BackgroundTasks, Request
 from fastapi.security import OAuth2PasswordRequestForm
 from sqlalchemy.orm import Session
