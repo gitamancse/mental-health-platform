@@ -27,7 +27,6 @@ from app.modules.users.services.user_service import (
     update_provider_profile,
     update_client_profile,
     change_password,
-    add_provider_license,
     update_user_status,
     toggle_provider_publish,
 )
@@ -85,15 +84,6 @@ def update_password(
     change_password(db, current_user, payload)
     return {"message": "Password updated successfully"}
 
-
-@user_router.post("/me/licenses", response_model=ProviderLicenseResponse)
-def add_license(
-    payload: LicenseCreate,
-    db: Session = Depends(get_db),
-    current_user: User = Depends(get_current_user),
-):
-    """Providers can add additional licenses"""
-    return add_provider_license(db, current_user, payload)
 
 
 # ====================== ADMIN-ONLY ENDPOINTS ======================
@@ -187,7 +177,7 @@ from app.modules.users.services.user_service import (
     update_provider_profile,
     update_client_profile,
     change_password,
-    add_provider_license,
+    
     update_user_status,
     toggle_provider_publish,
 )
@@ -245,15 +235,6 @@ def update_password(
     change_password(db, current_user, payload)
     return {"message": "Password updated successfully"}
 
-
-@user_router.post("/me/licenses", response_model=ProviderLicenseResponse)
-def add_license(
-    payload: LicenseCreate,
-    db: Session = Depends(get_db),
-    current_user: User = Depends(get_current_user),
-):
-    """Providers can add additional licenses"""
-    return add_provider_license(db, current_user, payload)
 
 
 # ====================== ADMIN-ONLY ENDPOINTS ======================

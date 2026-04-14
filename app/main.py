@@ -11,7 +11,7 @@ from datetime import datetime
 from pathlib import Path
 
 from app.core.config import settings
-from app.db.session import engine
+# from app.db.session import engine
 from app.db.base import Base
 
 import app.db.models  # triggers all model imports for Alembic
@@ -22,10 +22,16 @@ from app.modules.users.routers.user_router import user_router
 from app.modules.organizations.routers.organization_router import org_router
 from app.modules.executive.routers.executive_router import executive_router
 from app.modules.provider.routers.provider_router import provider_router
+<<<<<<< Updated upstream
 from app.modules.provider.routers.education_router import education_router
+=======
+# from app.modules.provider.routers.education_router import education_router
+from app.modules.provider.routers.registration_router import router as provider_registration_router
+from app.modules.provider.routers.admin_router import router as admin_provider_router
+>>>>>>> Stashed changes
 from app.modules.client.routers.client_router import client_router
 
-Base.metadata.create_all(bind=engine)
+# Base.metadata.create_all(bind=engine)
 
 tags_metadata = []
 
@@ -156,11 +162,21 @@ if getattr(settings, "ENABLE_EXECUTIVE_ROUTERS", True):
 
 if getattr(settings, "ENABLE_PROVIDER_ROUTERS", True):
     app.include_router(provider_router, prefix="/api/provider", tags=["Provider|Provider"])
+<<<<<<< Updated upstream
     app.include_router(
         education_router,
         prefix="/api/provider/education",
         tags=["Provider|Education"]
     )
+=======
+    # app.include_router(
+    #     # education_router,
+    #     prefix="/api/provider/education",
+    #     tags=["Provider|Education"]
+    # )
+    app.include_router(provider_registration_router, prefix="/api", tags=["Provider Onboarding"])
+    app.include_router(admin_provider_router, prefix="/api", tags=["Admin - Provider Management"])
+>>>>>>> Stashed changes
 
 if getattr(settings, "ENABLE_CLIENT_ROUTERS", True):
     app.include_router(client_router, prefix="/api/client", tags=["Client"])

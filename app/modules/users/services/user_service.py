@@ -11,7 +11,7 @@ from app.modules.auth.services.auth_service import get_password_hash, verify_pas
 from app.modules.users.models.user_model import (
     User, UserRole, AccountStatus, AuditLog, AdminActivityLog
 )
-from app.modules.provider.models.provider_model import ProviderLicense   # Correct import
+   # Correct import
 
 from app.modules.users.schemas.user_schema import (
     UserUpdateRequest, ProviderProfileUpdateRequest,
@@ -77,9 +77,6 @@ def _get_user_with_relations(db: Session, user_id: UUID) -> User:
             joinedload(User.provider_profile),
             joinedload(User.client_profile),
             joinedload(User.admin_profile),
-            joinedload(User.executive_profile),
-            selectinload(User.licenses),
-            selectinload(User.documents),
         )
         .filter(User.id == user_id, User.deleted_at.is_(None))
         .first()
@@ -264,38 +261,6 @@ def change_password(
     db.refresh(user)
     return user
 
-
-def add_provider_license(
-    db: Session, current_user: User, payload: LicenseCreate
-) -> ProviderLicense:
-    """Providers can add new licenses"""
-    if current_user.role != UserRole.PROVIDER:
-        raise HTTPException(status_code=403, detail="Only providers can manage licenses")
-
-    license_obj = ProviderLicense(
-        user_id=current_user.id,
-        license_number=payload.license_number,
-        state=payload.state,
-        expiry_date=payload.expiry_date,
-        is_verified=False,
-    )
-
-    db.add(license_obj)
-    db.flush()
-
-    log_audit(
-        db=db,
-        action="ADD_LICENSE",
-        entity_type="provider_license",
-        entity_id=license_obj.id,
-        details=payload.model_dump(),
-        performed_by=current_user.id,
-        target_user_id=current_user.id,
-    )
-
-    db.commit()
-    db.refresh(license_obj)
-    return license_obj
 
 
 def update_user_status(
