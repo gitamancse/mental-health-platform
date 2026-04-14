@@ -31,8 +31,8 @@ async def register_client_endpoint(
     db: Session = Depends(get_db),
     background_tasks: BackgroundTasks = None,
 ):
-    user = register_client(db, payload, background_tasks)
-    token, _ = create_access_token(user)
+    user = AuthService.register_client(db, payload, background_tasks)
+    token, _ = AuthService.create_access_token(user)
     return {"access_token": token, "token_type": "bearer"}
 
 
@@ -54,7 +54,7 @@ async def register_admin_endpoint(
     db: Session = Depends(get_db),
     background_tasks: BackgroundTasks = None,
 ):
-    register_admin(db, payload, background_tasks)
+    AuthService.register_admin(db, payload, background_tasks)
     return {"message": "Admin user created successfully"}
 
 
@@ -64,14 +64,14 @@ async def login(
     db: Session = Depends(get_db),
     request: Request = None,
 ):
-    user = authenticate_user(db, form_data.username, form_data.password)
+    user = AuthService.authenticate_user(db, form_data.username, form_data.password)
     if not user:
         raise HTTPException(status_code=401, detail="Incorrect email or password")
 
     if not user.is_verified and user.role != UserRole.ADMIN:
         raise HTTPException(status_code=403, detail="Please verify your email first")
 
-    token, _ = create_access_token(user)
+    token, _ = AuthService.create_access_token(user)
     return {"access_token": token, "token_type": "bearer"}
 
 
@@ -84,7 +84,7 @@ async def logout(
     auth_header = request.headers.get("Authorization")
     if auth_header and auth_header.startswith("Bearer "):
         token = auth_header.split(" ")[1]
-        blacklist_token(db, token, str(current_user.id))
+        AuthService.blacklist_token(db, token, str(current_user.id))
     return {"message": "Successfully logged out"}
 
 
@@ -98,7 +98,7 @@ async def verify_email(
     payload: VerifyEmailRequest,
     db: Session = Depends(get_db),
 ):
-    verify_email_code(db, payload.email, payload.code)
+    AuthService.verify_email_code(db, payload.email, payload.code)
     return {"message": "Email verified successfully"}
 
 
@@ -108,13 +108,13 @@ async def forgot_password(
     background_tasks: BackgroundTasks,
     db: Session = Depends(get_db),
 ):
-    create_password_reset_token(db, payload.email, background_tasks)
+    AuthService.create_password_reset_token(db, payload.email, background_tasks)
     return {"message": "If an account exists, a reset link has been sent."}
 
 
 @auth_router.post("/reset-password", response_model=MessageResponse)
 async def reset_password(payload: ResetPasswordRequest, db: Session = Depends(get_db)):
-    reset_user_password(db, payload.token, payload.new_password)
+    AuthService.reset_user_password(db, payload.token, payload.new_password)
     return {"message": "Password reset successfully"}
 @auth_router.post("/password-reset/request")
 async def request_reset(email: str, db: Session = Depends(get_db)):
