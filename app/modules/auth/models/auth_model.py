@@ -5,8 +5,7 @@ from typing import Optional, List
 from sqlalchemy import String, Boolean, DateTime, ForeignKey, Integer, JSON, Text
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
-from sqlalchemy import String, Boolean, DateTime, ForeignKey, Integer, JSON
-from sqlalchemy.orm import Mapped, mapped_column, relationship
+
 from sqlalchemy.dialects.postgresql import UUID as PG_UUID
 from app.modules.users.models.user_model import User
 from app.modules.users.models.user_model import ClientProfile
@@ -23,14 +22,16 @@ class BlacklistedToken(Base):
     __tablename__ = "blacklisted_tokens"
 
     id: Mapped[UUID] = mapped_column(PG_UUID(as_uuid=True), primary_key=True, default=uuid4)
-    jti: Mapped[str] = mapped_column(String(36), unique=True, nullable=False, index=True)
+    jti: Mapped[str] = mapped_column(String(255), unique=True, index=True, nullable=False)
     user_id: Mapped[UUID] = mapped_column(
-        PG_UUID(as_uuid=True), ForeignKey("users.id", ondelete="CASCADE"), nullable=False
+        PG_UUID(as_uuid=True), 
+        ForeignKey("users.id", ondelete="CASCADE"), 
+        nullable=False
     )
     expires_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utc_now, nullable=False)
 
-    user: Mapped["User"] = relationship("User", foreign_keys=[user_id])
+    user: Mapped["User"] = relationship("User", foreign_keys=[user_id], uselist=False)
 
 
 class UserMFABackupCode(Base):

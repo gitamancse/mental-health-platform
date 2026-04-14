@@ -54,7 +54,28 @@ class Settings(BaseSettings):
                 path=self.POSTGRES_DB,
             )
         )
-
+    # -------------------------
+    # AZURE BLOB STORAGE
+    # -------------------------
+    AZURE_STORAGE_ACCOUNT_NAME: str
+    AZURE_CONTAINER_NAME: str
+    AZURE_STORAGE_CONNECTION_STRING: str
+    
+     # -------------------------
+    # EMAIL SETTINGS
+    # -------------------------
+    # We use these names to match your .env
+    MAIL_USERNAME: str
+    MAIL_PASSWORD: str
+    MAIL_FROM: str
+    MAIL_PORT: int
+    MAIL_SERVER: str 
+    MAIL_FROM_NAME: str = "BTT Platform"
+    @computed_field
+    @property
+    def AZURE_BLOB_URL(self) -> str:
+        """Returns the base URL for Azure Blob Storage"""
+        return f"https://{self.AZURE_STORAGE_ACCOUNT_NAME}.blob.core.windows.net/{self.AZURE_STORAGE_CONTAINER_NAME}"
     # -------------------------
     # REDIS (Optional)
     # -------------------------

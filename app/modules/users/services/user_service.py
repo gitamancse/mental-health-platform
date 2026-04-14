@@ -7,7 +7,7 @@ from fastapi import HTTPException
 from sqlalchemy import or_
 from sqlalchemy.orm import Session, joinedload, selectinload
 
-from app.modules.auth.services.auth_service import get_password_hash, verify_password
+from app.modules.auth.services.auth_service import AuthService
 from app.modules.users.models.user_model import (
     User, UserRole, AccountStatus, AuditLog, AdminActivityLog
 )
@@ -240,10 +240,10 @@ def change_password(
     """Secure password change"""
     user = _get_user_with_relations(db, current_user.id)
 
-    if not verify_password(payload.old_password, user.hashed_password):
+    if not AuthService.verify_password(payload.old_password, user.hashed_password):
         raise HTTPException(status_code=400, detail="Old password is incorrect")
 
-    user.hashed_password = get_password_hash(payload.new_password)
+    user.hashed_password = AuthService.get_password_hash(payload.new_password)
     user.password_changed_at = utc_now()
     user.updated_at = utc_now()
 

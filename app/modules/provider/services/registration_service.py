@@ -103,7 +103,7 @@ import secrets
 from app.core.email import EmailService
 from app.modules.provider.models.provider_registration import ProviderRegistration, RegistrationStatus
 from app.modules.users.models.user_model import User, UserRole, AccountStatus
-from app.modules.auth.services.auth_service import get_password_hash
+from app.modules.auth.services.auth_service import AuthService
 from app.utils.npi_validators import validate_npi_luhn
 from .npi_registry_service import NPIRegistryService 
 from .payment_service import PaymentGatewayService
@@ -236,7 +236,7 @@ class RegistrationService:
             # 4. Create User (PENDING status)
             user = User(
                 email=email,
-                hashed_password=get_password_hash(password),
+                hashed_password=AuthService.get_password_hash(password),
                 full_name=f"{first_name} {last_name}",
                 phone_number=phone_number,
                 role=UserRole.PROVIDER,
