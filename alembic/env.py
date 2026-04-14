@@ -1,7 +1,8 @@
 from logging.config import fileConfig
 from sqlalchemy import engine_from_config, pool
 from alembic import context
-from app.db.models import Base 
+from app.db.base import Base 
+from app.db.models import *
 
 # This is the Alembic Config object
 config = context.config
@@ -9,16 +10,13 @@ config = context.config
 # Import models after setting up the metadata
 def import_models():
     # Import user models
-    from app.modules.users.models.user_model import User, AdminProfile, ProviderProfile, ClientProfile
+    from app.modules.users.models.user_model import User, AdminProfile,  ClientProfile
 
     # Import provider models
     from app.modules.provider.models.provider_registration import ProviderRegistration
+    from app.modules.provider.models.provider_model import ProviderProfile
     from app.modules.provider.models.admin_action import AdminAction
 
-# other values from the config, defined by the needs of env.py,
-# can be acquired:
-# my_important_option = config.get_main_option("my_important_option")
-# ... etc.
 
 # Set the SQLAlchemy URL
 from app.core.config import settings
