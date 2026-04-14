@@ -2,23 +2,16 @@
 from datetime import datetime, timezone
 from uuid import UUID, uuid4
 from typing import Optional, List
-<<<<<<< Updated upstream
-
-from sqlalchemy import String, Boolean, DateTime, ForeignKey, Float, Integer, JSON, Text
-=======
 from sqlalchemy import String, Boolean, DateTime, UniqueConstraint, ForeignKey, Enum, Text, JSON, Float, Integer
->>>>>>> Stashed changes
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 from sqlalchemy.dialects.postgresql import UUID as PG_UUID
 
 from app.db.base import Base
-
+from app.modules.users.models.user_model import User
 
 def utc_now() -> datetime:
     return datetime.now(timezone.utc)
 
-<<<<<<< Updated upstream
-=======
 class ProviderProfile(Base):
     """Provider profile model for storing detailed information about mental health providers."""
 
@@ -124,7 +117,6 @@ class ProviderProfile(Base):
         viewonly=True
     )
     subscriptions: Mapped[List["ProviderSubscription"]] = relationship("ProviderSubscription", back_populates="provider")
->>>>>>> Stashed changes
 
 class ProviderAvailability(Base):
     __tablename__ = "provider_availabilities"
@@ -187,8 +179,7 @@ class ProviderSubscription(Base):
     current_period_start: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=True)
     current_period_end: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=True)
 
-    provider: Mapped["ProviderProfile"] = relationship("ProviderProfile")
-
+    provider: Mapped["ProviderProfile"] = relationship("ProviderProfile", back_populates="subscriptions")
 
 class ProviderPublicationRequest(Base):
     __tablename__ = "provider_publication_requests"
@@ -275,20 +266,6 @@ class ProviderLicense(Base):
     __table_args__ = (
         UniqueConstraint('user_id', 'state', 'license_number', name='_user_license_uc'),
     )
-<<<<<<< Updated upstream
-
-    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utc_now, nullable=False)
-
-    user: Mapped["User"] = relationship(
-        "User", back_populates="licenses", foreign_keys=[user_id]
-    )
-    verified_by_user: Mapped[Optional["User"]] = relationship(
-        "User", foreign_keys=[verified_by]
-    )
-
-
-=======
->>>>>>> Stashed changes
 class ProviderDocument(Base):
     __tablename__ = "provider_documents"
 
