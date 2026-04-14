@@ -88,8 +88,6 @@ class AuthService:
         db.flush()
         db.add(ClientProfile(user_id=user.id))
         db.commit()
-    except Exception:
-        pass
 
         await EmailService.send_verification_email(user.email, token)
         return user
