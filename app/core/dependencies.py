@@ -6,7 +6,7 @@ from sqlalchemy.orm import Session
 from app.core.config import settings
 from app.db.session import get_db
 from app.modules.users.models.user_model import User
-from app.modules.auth.services.auth_service import is_token_blacklisted
+from app.modules.auth.services.auth_service import AuthService
 
 
 oauth2_scheme = OAuth2PasswordBearer(tokenUrl="/api/auth/login")
@@ -30,7 +30,7 @@ async def get_current_user(
     except JWTError:
         raise credentials_exception
 
-    if is_token_blacklisted(db, jti):
+    if AuthService.is_token_blacklisted(db, jti):
         raise HTTPException(status_code=401, detail="Token has been revoked")
 
     user = db.query(User).filter(User.email == email).first()
