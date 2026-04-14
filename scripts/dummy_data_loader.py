@@ -1,10 +1,12 @@
 import sys
 import os
 from datetime import datetime, timedelta, timezone
+from uuid import uuid4
 
 from sqlalchemy import text
 from sqlalchemy.orm import Session
 
+# Add project root to path
 sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 from app.db.session import SessionLocal, engine
@@ -35,6 +37,8 @@ from app.modules.provider.models.provider_model import (
     ProviderSubscription, ProviderPublicationRequest,
     ProviderGallery, ProviderWaitlist, ProviderLicense, ProviderDocument,
 )
+from app.modules.provider.models.provider_registration import ProviderRegistration
+from app.modules.provider.models.admin_action import AdminAction
 from app.modules.client.models.client_model import (
     ClientSubscription, ClientIntakeForm, ClientAssessment,
     ClientConsent, ClientPreference, ClientMedicalHistory,
@@ -57,6 +61,79 @@ def reset_database_completely():
         conn.commit()
     print("✅ Database fully reset and ready for fresh schema creation.\n")
 
+def create_enum_types():
+    """Create enum types if they don't exist"""
+    with engine.connect().execution_options(isolation_level="AUTOCOMMIT") as conn:
+        enum_types = [
+            {
+                "name": "userrole",
+                "values": ["super_admin", "admin", "executive", "provider", "client"]
+            },
+            {
+                "name": "accountstatus",
+                "values": ["pending", "active", "suspended", "deleted"]
+            },
+            {
+                "name": "orgstatus",
+                "values": ["pending", "active", "suspended"]
+            },
+            {
+                "name": "registrationstatus",
+                "values": [
+                    "pending_npi_validation",
+                    "pending_admin_review",
+                    "approved",
+                    "rejected",
+                    "request_revisions"
+                ]
+            },
+            {
+                "name": "actiontype",
+                "values": [
+                    "approve_registration",
+                    "reject_registration",
+                    "manual_npi_override",
+                    "publish_profile",
+                    "request_revisions"
+                ]
+            }
+        ]
+
+        for enum_type in enum_types:
+            # Check if enum type exists
+            result = conn.execute(
+                text("SELECT 1 FROM pg_type WHERE typname = :enum_name"),
+                {"enum_name": enum_type["name"]}
+            ).fetchone()
+
+            if not result:
+                # Create the enum type
+                values = ", ".join([f"'{v}'" for v in enum_type["values"]])
+                conn.execute(
+                    text(f"CREATE TYPE {enum_type['name']} AS ENUM ({values})")
+                )
+                print(f"Created enum type: {enum_type['name']}")
+            else:
+                # Check for missing values and add them
+                existing = conn.execute(
+                    text(
+                        """
+                        SELECT e.enumlabel
+                        FROM pg_type t
+                        JOIN pg_enum e ON t.oid = e.enumtypid
+                        WHERE t.typname = :enum_name
+                        ORDER BY e.enumsortorder
+                        """
+                    ),
+                    {"enum_name": enum_type["name"]},
+                ).fetchall()
+
+                existing_values = {row[0] for row in existing}
+
+                for value in enum_type["values"]:
+                    if value not in existing_values:
+                        print(f"Adding missing enum value '{value}' to '{enum_type['name']}'...")
+                        conn.execute(text(f"ALTER TYPE {enum_type['name']} ADD VALUE '{value}'"))
 
 def ensure_enum_values():
     """Add any missing enum values to PostgreSQL types"""
@@ -81,6 +158,195 @@ def ensure_enum_values():
                     print(f"Adding missing enum value '{value}' to '{enum_name}'...")
                     conn.execute(text(f"ALTER TYPE {enum_name} ADD VALUE IF NOT EXISTS '{value}'"))
 
+def create_user_if_not_exists(db: Session, email: str, user_data: dict, profile_data: dict, profile_type: str):
+    """Helper function to create a user and their profile if they don't exist"""
+    user = db.query(User).filter(User.email == email).first()
+    if not user:
+        print(f"Creating {profile_type} with email {email}...")
+        user = User(
+            email=email,
+            hashed_password=get_password_hash(user_data.get("password", "Password@123")),
+            full_name=user_data["full_name"],
+            phone_number=user_data.get("phone_number"),
+            role=user_data["role"],
+            account_status=user_data.get("account_status", AccountStatus.PENDING),
+            is_verified=user_data.get("is_verified", False),
+            email_verified=user_data.get("email_verified", True),
+            is_active=user_data.get("is_active", True),
+        )
+        db.add(user)
+        db.flush()
+
+        # Create the appropriate profile
+        if profile_type == "admin":
+            profile = AdminProfile(
+                user_id=user.id,
+                admin_title=profile_data.get("admin_title", "Administrator"),
+                department=profile_data.get("department", "Operations"),
+                is_super_admin=profile_data.get("is_super_admin", False),
+                permissions=profile_data.get("permissions", []),
+                profile_picture_url=profile_data.get("profile_picture_url"),
+            )
+        elif profile_type == "executive":
+            profile = ExecutiveProfile(
+                user_id=user.id,
+                executive_title=profile_data.get("executive_title", "Executive"),
+                department=profile_data.get("department", "Management"),
+                organization_name=profile_data.get("organization_name", "BTT Mental Health Group"),
+                permissions=profile_data.get("permissions", []),
+                profile_picture_url=profile_data.get("profile_picture_url"),
+            )
+        elif profile_type == "provider":
+            profile = ProviderProfile(
+                user_id=user.id,
+                professional_title=profile_data.get("professional_title", "Therapist"),
+                years_of_experience=profile_data.get("years_of_experience", 0),
+                bio=profile_data.get("bio", ""),
+                specialties=profile_data.get("specialties", []),
+                modalities=profile_data.get("modalities", []),
+                languages=profile_data.get("languages", []),
+                insurance_accepted=profile_data.get("insurance_accepted", []),
+                office_address=profile_data.get("office_address"),
+                latitude=profile_data.get("latitude"),
+                longitude=profile_data.get("longitude"),
+                timezone=profile_data.get("timezone"),
+                subdomain_slug=profile_data.get("subdomain_slug"),
+                phone_number_masked=profile_data.get("phone_number_masked"),
+                accepting_new_clients=profile_data.get("accepting_new_clients", True),
+                is_published=profile_data.get("is_published", False),
+                average_rating=profile_data.get("average_rating", 0.0),
+                total_reviews=profile_data.get("total_reviews", 0),
+                profile_status=profile_data.get("status", "draft"),
+                published_at=profile_data.get("published_at"),
+                profile_picture_url=profile_data.get("profile_picture_url"),
+            )
+        elif profile_type == "client":
+            profile = ClientProfile(
+                user_id=user.id,
+                date_of_birth=profile_data.get("date_of_birth"),
+                gender=profile_data.get("gender"),
+                pronouns=profile_data.get("pronouns"),
+                preferred_language=profile_data.get("preferred_language", "English"),
+                self_assessment_data=profile_data.get("self_assessment_data", {}),
+                preferences=profile_data.get("preferences", {}),
+                subscription_tier=profile_data.get("subscription_tier"),
+                membership_expiry=profile_data.get("membership_expiry"),
+                referral_source=profile_data.get("referral_source"),
+                total_sessions=profile_data.get("total_sessions", 0),
+                profile_picture_url=profile_data.get("profile_picture_url"),
+            )
+
+        db.add(profile)
+
+        # Create license if this is a provider
+        if profile_type == "provider" and profile_data.get("license_number"):
+            license = ProviderLicense(
+                user_id=user.id,
+                license_number=profile_data["license_number"],
+                state=profile_data.get("license_state", "CA"),
+                expiry_date=profile_data.get("expiry_date", utc_now() + timedelta(days=365)),
+                is_verified=profile_data.get("is_verified", True),
+                verified_at=profile_data.get("verified_at", utc_now()),
+                verified_by=profile_data.get("verified_by"),
+            )
+            db.add(license)
+
+        db.flush()
+        print(f"✅ {profile_type.capitalize()} created with ID: {user.id}")
+        return user
+    else:
+        print(f"✔ {profile_type.capitalize()} with email {email} already exists (ID: {user.id})")
+        return user
+
+def create_provider_registration_if_not_exists(db: Session, email: str, registration_data: dict):
+    """Helper function to create a provider registration if it doesn't exist"""
+    registration = db.query(ProviderRegistration).filter(ProviderRegistration.email == email).first()
+    if not registration:
+        print(f"Creating provider registration for {email}...")
+
+        # First create the user if they don't exist
+        user = db.query(User).filter(User.email == email).first()
+        if not user:
+            user = User(
+                email=email,
+                hashed_password=get_password_hash(registration_data.get("password", "Provider@123")),
+                full_name=registration_data["full_name"],
+                role=UserRole.PROVIDER,
+                account_status=registration_data.get("account_status", AccountStatus.PENDING),
+                is_verified=registration_data.get("is_verified", False),
+                email_verified=registration_data.get("email_verified", True),
+                is_active=registration_data.get("is_active", True),
+            )
+            db.add(user)
+            db.flush()
+
+        registration = ProviderRegistration(
+            user_id=user.id,
+            title=registration_data.get("title", "Dr"),
+            first_name=registration_data["first_name"],
+            middle_name=registration_data.get("middle_name"),
+            last_name=registration_data["last_name"],
+            email=email,
+            address_line1=registration_data.get("address_line1", "123 Main St"),
+            city=registration_data.get("city", "San Francisco"),
+            postcode=registration_data.get("postcode", "94105"),
+            country=registration_data.get("country", "US"),
+            licensing_board=registration_data.get("licensing_board", "California Board of Psychology"),
+            registry_id=registration_data.get("registry_id", "REG123456"),
+            membership_type=registration_data.get("membership_type", "Accredited Member"),
+            professional_role=registration_data["professional_role"],
+            academic_degree=registration_data.get("academic_degree"),
+            npi_number=registration_data["npi_number"],
+            npi_validated=registration_data.get("npi_validated", False),
+            license_number=registration_data["license_number"],
+            license_state=registration_data.get("license_state", "CA"),
+            license_proof_url=registration_data.get("license_proof_url"),
+            status=registration_data["status"],
+            admin_notes=registration_data.get("admin_notes"),
+            rejection_reason=registration_data.get("rejection_reason"),
+            submitted_at=registration_data.get("submitted_at", utc_now()),
+        )
+
+        if registration_data.get("reviewed_by"):
+            registration.reviewed_by = registration_data["reviewed_by"]
+            registration.reviewed_at = registration_data.get("reviewed_at", utc_now())
+
+        db.add(registration)
+        db.flush()
+        print(f"✅ Provider registration created with ID: {registration.id}")
+        return registration
+    else:
+        print(f"✔ Provider registration for {email} already exists (ID: {registration.id})")
+        return registration
+
+def create_admin_action_if_not_exists(db: Session, action_data: dict):
+    """Helper function to create an admin action if it doesn't exist"""
+    # Check if an action with the same target_id and action_type already exists
+    existing_action = db.query(AdminAction).filter(
+        AdminAction.target_id == action_data["target_id"],
+        AdminAction.action_type == action_data["action_type"]
+    ).first()
+
+    if not existing_action:
+        print(f"Creating admin action {action_data['action_type']} for target {action_data['target_id']}...")
+
+        action = AdminAction(
+            admin_id=action_data["admin_id"],
+            user_id=action_data.get("user_id"),
+            action_type=action_data["action_type"],
+            target_id=action_data["target_id"],
+            target_type=action_data["target_type"],
+            action_metadata=action_data.get("action_metadata", {}),
+            created_at=action_data.get("created_at", utc_now())
+        )
+
+        db.add(action)
+        db.flush()
+        print(f"✅ Admin action created with ID: {action.id}")
+        return action
+    else:
+        print(f"✔ Admin action {action_data['action_type']} for target {action_data['target_id']} already exists (ID: {existing_action.id})")
+        return existing_action
 
 def load_dummy_data():
     print("\n=== Starting Comprehensive Dummy Data Loader ===\n")
@@ -88,169 +354,143 @@ def load_dummy_data():
 
     try:
         ensure_enum_values()
+        create_enum_types()
 
         # ===================================================================
         # 1. CORE USERS + PROFILES
         # ===================================================================
         # SUPER ADMIN
-        super_admin = db.query(User).filter(User.email == "superadmin@btt.com").first()
-        if not super_admin:
-            super_admin = User(
-                email="superadmin@btt.com",
-                hashed_password=get_password_hash("SuperAdmin@123"),
-                full_name="Dr. Michael Rivera",
-                phone_number="+1-555-0101",
-                role=UserRole.SUPER_ADMIN,
-                account_status=AccountStatus.ACTIVE,
-                is_verified=True,
-                email_verified=True,
-                is_active=True,
-                mfa_enabled=True,
-            )
-            db.add(super_admin)
-            db.flush()
-            db.add(
-                AdminProfile(
-                    user_id=super_admin.id,
-                    admin_title="Platform Superintendent",
-                    department="Executive Leadership",
-                    is_super_admin=True,
-                    permissions=["all_access", "system_config", "billing_master"],
-                    notes="Founding super admin",
-                    profile_picture_url="https://btt.com/uploads/avatars/superadmin.jpg",
-                )
-            )
-            db.flush()
-            print("✅ Super Admin + AdminProfile created")
+        super_admin = create_user_if_not_exists(
+            db=db,
+            email="superadmin@btt.com",
+            user_data={
+                "full_name": "Dr. Michael Rivera",
+                "phone_number": "+1-555-0101",
+                "role": UserRole.SUPER_ADMIN,
+                "account_status": AccountStatus.ACTIVE,
+                "is_verified": True,
+                "password": "SuperAdmin@123"
+            },
+            profile_data={
+                "admin_title": "Platform Superintendent",
+                "department": "Executive Leadership",
+                "is_super_admin": True,
+                "permissions": ["all_access", "system_config", "billing_master"],
+                "notes": "Founding super admin",
+                "profile_picture_url": "https://btt.com/uploads/avatars/superadmin.jpg",
+            },
+            profile_type="admin"
+        )
 
         # ADMIN
-        admin = db.query(User).filter(User.email == "admin@btt.com").first()
-        if not admin:
-            admin = User(
-                email="admin@btt.com",
-                hashed_password=get_password_hash("Admin@123456"),
-                full_name="Priya Sharma",
-                phone_number="+1-555-0102",
-                role=UserRole.ADMIN,
-                account_status=AccountStatus.ACTIVE,
-                is_verified=True,
-                email_verified=True,
-                is_active=True,
-            )
-            db.add(admin)
-            db.flush()
-            db.add(
-                AdminProfile(
-                    user_id=admin.id,
-                    admin_title="Operations Director",
-                    department="Compliance & Onboarding",
-                    is_super_admin=False,
-                    permissions=["user_management", "provider_approval", "audit_view"],
-                    profile_picture_url="https://btt.com/uploads/avatars/admin.jpg",
-                )
-            )
-            db.flush()
-            print("✅ Admin + AdminProfile created")
+        admin = create_user_if_not_exists(
+            db=db,
+            email="admin@btt.com",
+            user_data={
+                "full_name": "Priya Sharma",
+                "phone_number": "+1-555-0102",
+                "role": UserRole.ADMIN,
+                "account_status": AccountStatus.ACTIVE,
+                "is_verified": True,
+                "password": "Admin@123456"
+            },
+            profile_data={
+                "admin_title": "Operations Director",
+                "department": "Compliance & Onboarding",
+                "is_super_admin": False,
+                "permissions": ["user_management", "provider_approval", "audit_view"],
+                "profile_picture_url": "https://btt.com/uploads/avatars/admin.jpg",
+            },
+            profile_type="admin"
+        )
 
         # EXECUTIVE
-        executive = db.query(User).filter(User.email == "executive@btt.com").first()
-        if not executive:
-            executive = User(
-                email="executive@btt.com",
-                hashed_password=get_password_hash("Executive@123"),
-                full_name="Sarah Chen",
-                phone_number="+1-555-0103",
-                role=UserRole.EXECUTIVE,
-                account_status=AccountStatus.ACTIVE,
-                is_verified=True,
-                email_verified=True,
-                is_active=True,
-            )
-            db.add(executive)
-            db.flush()
-            exec_profile = ExecutiveProfile(
-                user_id=executive.id,
-                executive_title="Clinical Director",
-                department="Behavioral Health",
-                organization_name="BTT Mental Health Group",
-                permissions=["provider_onboarding", "billing_view", "analytics"],
-                profile_picture_url="https://btt.com/uploads/avatars/executive.jpg",
-            )
-            db.add(exec_profile)
-            db.flush()
-            print("✅ Executive + ExecutiveProfile created")
+        executive = create_user_if_not_exists(
+            db=db,
+            email="executive@btt.com",
+            user_data={
+                "full_name": "Sarah Chen",
+                "phone_number": "+1-555-0103",
+                "role": UserRole.EXECUTIVE,
+                "account_status": AccountStatus.ACTIVE,
+                "is_verified": True,
+                "password": "Executive@123"
+            },
+            profile_data={
+                "executive_title": "Clinical Director",
+                "department": "Behavioral Health",
+                "organization_name": "BTT Mental Health Group",
+                "permissions": ["provider_onboarding", "billing_view", "analytics"],
+                "profile_picture_url": "https://btt.com/uploads/avatars/executive.jpg",
+            },
+            profile_type="executive"
+        )
 
         # PROVIDER
-        provider = db.query(User).filter(User.email == "provider@btt.com").first()
-        if not provider:
-            provider = User(
-                email="provider@btt.com",
-                hashed_password=get_password_hash("Provider@123"),
-                full_name="Dr. Johnathan Hale",
-                phone_number="+1-555-0104",
-                role=UserRole.PROVIDER,
-                account_status=AccountStatus.ACTIVE,
-                is_verified=True,
-                email_verified=True,
-                is_active=True,
-            )
-            db.add(provider)
-            db.flush()
-            provider_profile = ProviderProfile(
-                user_id=provider.id,
-                professional_title="Licensed Clinical Psychologist",
-                years_of_experience=12,
-                bio="Specializing in trauma-informed CBT and mindfulness-based therapy for adults and adolescents.",
-                specialties=["anxiety", "depression", "trauma", "ptsd"],
-                modalities=["cbt", "emdr", "mindfulness"],
-                languages=["English", "Spanish"],
-                insurance_accepted=["Aetna", "BlueCross", "UnitedHealthcare"],
-                office_address="123 Wellness Blvd, Suite 400, Hyderabad, Telangana 500081",
-                latitude=17.3850,
-                longitude=78.4867,
-                timezone="Asia/Kolkata",
-                accepting_new_clients=True,
-                is_published=True,
-                average_rating=4.8,
-                total_reviews=47,
-                profile_picture_url="https://btt.com/uploads/avatars/dr-hale.jpg",
-            )
-            db.add(provider_profile)
-            db.flush()
-            print("✅ Provider + ProviderProfile created")
-        else:
-            provider_profile = db.query(ProviderProfile).filter(ProviderProfile.user_id == provider.id).first()
+        provider = create_user_if_not_exists(
+            db=db,
+            email="provider@btt.com",
+            user_data={
+                "full_name": "Dr. Johnathan Hale",
+                "phone_number": "+1-555-0104",
+                "role": UserRole.PROVIDER,
+                "account_status": AccountStatus.ACTIVE,
+                "is_verified": True,
+                "password": "Provider@123"
+            },
+            profile_data={
+                "professional_title": "Licensed Clinical Psychologist",
+                "years_of_experience": 12,
+                "bio": "Specializing in trauma-informed CBT and mindfulness-based therapy for adults and adolescents.",
+                "specialties": ["anxiety", "depression", "trauma", "ptsd"],
+                "modalities": ["cbt", "emdr", "mindfulness"],
+                "languages": ["English", "Spanish"],
+                "insurance_accepted": ["Aetna", "BlueCross", "UnitedHealthcare"],
+                "office_address": "123 Wellness Blvd, Suite 400, Hyderabad, Telangana 500081",
+                "latitude": 17.3850,
+                "longitude": 78.4867,
+                "timezone": "Asia/Kolkata",
+                "accepting_new_clients": True,
+                "is_published": True,
+                "average_rating": 4.8,
+                "total_reviews": 47,
+                "status": "published",
+                "published_at": utc_now() - timedelta(days=1),
+                "profile_picture_url": "https://btt.com/uploads/avatars/dr-hale.jpg",
+                "license_number": "PSY-2020-45678",
+                "license_state": "TG",
+                "expiry_date": utc_now() + timedelta(days=365 * 3),
+                "is_verified": True,
+                "verified_at": utc_now() - timedelta(days=180),
+                "verified_by": admin.id,
+            },
+            profile_type="provider"
+        )
 
         # CLIENT
-        client = db.query(User).filter(User.email == "client@btt.com").first()
-        if not client:
-            client = User(
-                email="client@btt.com",
-                hashed_password=get_password_hash("Client@123"),
-                full_name="Meera Patel",
-                phone_number="+1-555-0105",
-                role=UserRole.CLIENT,
-                account_status=AccountStatus.ACTIVE,
-                is_verified=True,
-                email_verified=True,
-                is_active=True,
-            )
-            db.add(client)
-            db.flush()
-            client_profile = ClientProfile(
-                user_id=client.id,
-                date_of_birth=datetime(1995, 6, 15, tzinfo=timezone.utc),
-                gender="Female",
-                pronouns="she/her",
-                preferred_language="English",
-                total_sessions=14,
-                profile_picture_url="https://btt.com/uploads/avatars/meera.jpg",
-            )
-            db.add(client_profile)
-            db.flush()
-            print("✅ Client + ClientProfile created")
-        else:
-            client_profile = db.query(ClientProfile).filter(ClientProfile.user_id == client.id).first()
+        client = create_user_if_not_exists(
+            db=db,
+            email="client@btt.com",
+            user_data={
+                "full_name": "Meera Patel",
+                "phone_number": "+1-555-0105",
+                "role": UserRole.CLIENT,
+                "account_status": AccountStatus.ACTIVE,
+                "is_verified": True,
+                "password": "Client@123"
+            },
+            profile_data={
+                "date_of_birth": datetime(1995, 6, 15, tzinfo=timezone.utc),
+                "gender": "Female",
+                "pronouns": "she/her",
+                "preferred_language": "English",
+                "total_sessions": 14,
+                "self_assessment_data": {"q1": "Moderate anxiety", "q2": "Sleep issues", "q3": "Work stress"},
+                "preferences": {"preferred_time": "evenings"},
+                "profile_picture_url": "https://btt.com/uploads/avatars/meera.jpg",
+            },
+            profile_type="client"
+        )
 
         # ===================================================================
         # 2. ORGANIZATION + MULTI-TENANCY
@@ -316,7 +556,9 @@ def load_dummy_data():
         # ===================================================================
         # 3. PROVIDER-SPECIFIC DATA
         # ===================================================================
-        if not db.query(ProviderEducation).filter(ProviderEducation.provider_profile_id == provider_profile.id).first():
+        provider_profile = db.query(ProviderProfile).filter(ProviderProfile.user_id == provider.id).first()
+
+        if provider_profile and not db.query(ProviderEducation).filter(ProviderEducation.provider_profile_id == provider_profile.id).first():
             db.add(ProviderEducation(
                 provider_profile_id=provider_profile.id,
                 degree="PsyD",
@@ -329,7 +571,7 @@ def load_dummy_data():
             db.flush()
             print("✅ ProviderEducation created")
 
-        if not db.query(ProviderAvailability).filter(ProviderAvailability.provider_id == provider_profile.id).first():
+        if provider_profile and not db.query(ProviderAvailability).filter(ProviderAvailability.provider_id == provider_profile.id).first():
             for day in range(0, 5):  # Mon–Fri
                 db.add(ProviderAvailability(
                     provider_id=provider_profile.id,
@@ -341,31 +583,7 @@ def load_dummy_data():
             db.flush()
             print("✅ ProviderAvailability created")
 
-        if not db.query(ProviderLicense).filter(ProviderLicense.user_id == provider.id).first():
-            db.add(ProviderLicense(
-                user_id=provider.id,
-                license_number="PSY-2020-45678",
-                state="TG",
-                expiry_date=utc_now() + timedelta(days=365 * 3),
-                is_verified=True,
-                verified_at=utc_now() - timedelta(days=180),
-                verified_by=admin.id,
-            ))
-            db.flush()
-            print("✅ ProviderLicense created")
-
-        if not db.query(ProviderDocument).filter(ProviderDocument.user_id == provider.id).first():
-            db.add(ProviderDocument(
-                user_id=provider.id,
-                file_url="https://btt.com/uploads/documents/dr-hale-license.pdf",
-                file_type="pdf",
-                original_filename="license-2024.pdf",
-                verified=True,
-            ))
-            db.flush()
-            print("✅ ProviderDocument created")
-
-        if not db.query(ProviderReview).filter(ProviderReview.provider_id == provider_profile.id).first():
+        if provider_profile and not db.query(ProviderReview).filter(ProviderReview.provider_id == provider_profile.id).first():
             db.add(ProviderReview(
                 provider_id=provider_profile.id,
                 client_id=client.id,
@@ -375,7 +593,7 @@ def load_dummy_data():
             db.flush()
             print("✅ ProviderReview created")
 
-        if not db.query(ProviderSubscription).filter(ProviderSubscription.provider_id == provider_profile.id).first():
+        if provider_profile and not db.query(ProviderSubscription).filter(ProviderSubscription.provider_id == provider_profile.id).first():
             db.add(ProviderSubscription(
                 provider_id=provider_profile.id,
                 plan_name="Professional Tier",
@@ -387,7 +605,7 @@ def load_dummy_data():
             db.flush()
             print("✅ ProviderSubscription created")
 
-        if not db.query(ProviderPublicationRequest).filter(ProviderPublicationRequest.provider_id == provider_profile.id).first():
+        if provider_profile and not db.query(ProviderPublicationRequest).filter(ProviderPublicationRequest.provider_id == provider_profile.id).first():
             db.add(ProviderPublicationRequest(
                 provider_id=provider_profile.id,
                 status="APPROVED",
@@ -398,7 +616,7 @@ def load_dummy_data():
             ))
             db.flush()
 
-        if not db.query(ProviderGallery).filter(ProviderGallery.provider_id == provider_profile.id).first():
+        if provider_profile and not db.query(ProviderGallery).filter(ProviderGallery.provider_id == provider_profile.id).first():
             db.add(ProviderGallery(
                 provider_id=provider_profile.id,
                 file_url="https://btt.com/uploads/gallery/office-1.jpg",
@@ -409,9 +627,94 @@ def load_dummy_data():
             print("✅ ProviderGallery created")
 
         # ===================================================================
-        # 4. CLIENT-SPECIFIC DATA
+        # 4. PROVIDER REGISTRATIONS
         # ===================================================================
-        if not db.query(ClientSubscription).filter(ClientSubscription.client_id == client_profile.id).first():
+        # PENDING REGISTRATION
+        provider_registration = create_provider_registration_if_not_exists(
+            db=db,
+            email="newprovider@btt.com",
+            registration_data={
+                "full_name": "Dr. Sarah Johnson",
+                "first_name": "Sarah",
+                "middle_name": "Marie",
+                "last_name": "Johnson",
+                "professional_role": "Licensed Clinical Psychologist",
+                "academic_degree": "PhD",
+                "npi_number": "1234567890",
+                "npi_validated": True,
+                "license_number": "LIC987654",
+                "license_state": "CA",
+                "license_proof_url": "https://storage.example.com/licenses/LIC987654.pdf",
+                "status": "pending_admin_review",
+                "password": "Provider@123"
+            }
+        )
+
+        # Create approval action for the registration if it doesn't exist
+        if provider_registration:
+            create_admin_action_if_not_exists(
+                db=db,
+                action_data={
+                    "admin_id": admin.id,
+                    "user_id": provider_registration.user_id,
+                    "action_type": "approve_registration",
+                    "target_id": provider_registration.id,
+                    "target_type": "provider_registration",
+                    "action_metadata": {
+                        "previous_status": "pending_admin_review",
+                        "new_status": "approved",
+                        "notes": "Initial registration created"
+                    },
+                    "created_at": utc_now()
+                }
+            )
+
+        # REJECTED REGISTRATION
+        rejected_registration = create_provider_registration_if_not_exists(
+            db=db,
+            email="rejectedprovider@btt.com",
+            registration_data={
+                "full_name": "Dr. Bad Provider",
+                "first_name": "Bad",
+                "last_name": "Provider",
+                "professional_role": "Unlicensed Therapist",
+                "npi_number": "0987654321",
+                "npi_validated": False,
+                "license_number": "INVALID123",
+                "license_state": "CA",
+                "status": "rejected",
+                "rejection_reason": "Invalid license number and NPI not verified",
+                "reviewed_by": admin.id,
+                "reviewed_at": utc_now() - timedelta(days=1),
+                "password": "Provider@123"
+            }
+        )
+
+        # Create rejection action if it doesn't exist
+        if rejected_registration:
+            create_admin_action_if_not_exists(
+                db=db,
+                action_data={
+                    "admin_id": admin.id,
+                    "user_id": rejected_registration.user_id,
+                    "action_type": "reject_registration",
+                    "target_id": rejected_registration.id,
+                    "target_type": "provider_registration",
+                    "action_metadata": {
+                        "previous_status": "pending_admin_review",
+                        "new_status": "rejected",
+                        "rejection_reason": "Invalid license number and NPI not verified"
+                    },
+                    "created_at": utc_now() - timedelta(days=1)
+                }
+            )
+
+        # ===================================================================
+        # 5. CLIENT-SPECIFIC DATA
+        # ===================================================================
+        client_profile = db.query(ClientProfile).filter(ClientProfile.user_id == client.id).first()
+
+        if client_profile and not db.query(ClientSubscription).filter(ClientSubscription.client_id == client_profile.id).first():
             db.add(ClientSubscription(
                 client_id=client_profile.id,
                 plan_name="Monthly Premium",
@@ -423,7 +726,7 @@ def load_dummy_data():
             db.flush()
             print("✅ ClientSubscription created")
 
-        if not db.query(ClientPreference).filter(ClientPreference.client_id == client_profile.id).first():
+        if client_profile and not db.query(ClientPreference).filter(ClientPreference.client_id == client_profile.id).first():
             db.add(ClientPreference(
                 client_id=client_profile.id,
                 notification_email=True,
@@ -435,7 +738,7 @@ def load_dummy_data():
             ))
             db.flush()
 
-        if not db.query(ClientMedicalHistory).filter(ClientMedicalHistory.client_id == client_profile.id).first():
+        if client_profile and not db.query(ClientMedicalHistory).filter(ClientMedicalHistory.client_id == client_profile.id).first():
             db.add(ClientMedicalHistory(
                 client_id=client_profile.id,
                 conditions=["Generalized Anxiety Disorder", "Mild Depression"],
@@ -447,7 +750,7 @@ def load_dummy_data():
             db.flush()
             print("✅ ClientMedicalHistory created")
 
-        if not db.query(ClientGoal).filter(ClientGoal.client_id == client_profile.id).first():
+        if client_profile and not db.query(ClientGoal).filter(ClientGoal.client_id == client_profile.id).first():
             goal = ClientGoal(
                 client_id=client_profile.id,
                 title="Reduce daily anxiety to manageable levels",
@@ -468,7 +771,7 @@ def load_dummy_data():
             db.flush()
             print("✅ ClientGoal + ClientProgress created")
 
-        if not db.query(ClientAppointment).filter(ClientAppointment.client_id == client_profile.id).first():
+        if client_profile and not db.query(ClientAppointment).filter(ClientAppointment.client_id == client_profile.id).first():
             db.add(ClientAppointment(
                 client_id=client_profile.id,
                 provider_id=provider_profile.id,
@@ -486,7 +789,7 @@ def load_dummy_data():
             db.flush()
             print("✅ ClientAppointment created")
 
-        if not db.query(ClientTherapySession).filter(ClientTherapySession.client_id == client_profile.id).first():
+        if client_profile and not db.query(ClientTherapySession).filter(ClientTherapySession.client_id == client_profile.id).first():
             db.add(ClientTherapySession(
                 client_id=client_profile.id,
                 provider_id=provider_profile.id,
@@ -496,7 +799,7 @@ def load_dummy_data():
             ))
             db.flush()
 
-        if not db.query(ClientNote).filter(ClientNote.client_id == client_profile.id).first():
+        if client_profile and not db.query(ClientNote).filter(ClientNote.client_id == client_profile.id).first():
             db.add(ClientNote(
                 client_id=client_profile.id,
                 title="Initial Intake Summary",
@@ -506,7 +809,7 @@ def load_dummy_data():
             db.flush()
             print("✅ ClientNote created")
 
-        if not db.query(ClientJournalEntry).filter(ClientJournalEntry.client_id == client_profile.id).first():
+        if client_profile and not db.query(ClientJournalEntry).filter(ClientJournalEntry.client_id == client_profile.id).first():
             db.add(ClientJournalEntry(
                 client_id=client_profile.id,
                 title="Gratitude Journal - Week 3",
@@ -516,23 +819,23 @@ def load_dummy_data():
             db.flush()
 
         # Minimal client supporting records
-        if not db.query(ClientAllergy).filter(ClientAllergy.client_id == client_profile.id).first():
+        if client_profile and not db.query(ClientAllergy).filter(ClientAllergy.client_id == client_profile.id).first():
             db.add(ClientAllergy(client_id=client_profile.id, allergen="Penicillin", severity="Moderate", reaction="Hives and swelling", noted_at=utc_now() - timedelta(days=200)))
-        if not db.query(ClientMedication).filter(ClientMedication.client_id == client_profile.id).first():
+        if client_profile and not db.query(ClientMedication).filter(ClientMedication.client_id == client_profile.id).first():
             db.add(ClientMedication(client_id=client_profile.id, medication_name="Escitalopram", dosage="10mg", frequency="once daily", prescribed_by="Dr. Anika Rao", start_date=utc_now() - timedelta(days=180)))
-        if not db.query(ClientDocument).filter(ClientDocument.client_id == client_profile.id).first():
+        if client_profile and not db.query(ClientDocument).filter(ClientDocument.client_id == client_profile.id).first():
             db.add(ClientDocument(client_id=client_profile.id, file_url="https://btt.com/uploads/documents/meera-intake.pdf", file_type="pdf", original_filename="intake_form_signed.pdf", verified=True))
-        if not db.query(ClientIntakeForm).filter(ClientIntakeForm.client_id == client_profile.id).first():
+        if client_profile and not db.query(ClientIntakeForm).filter(ClientIntakeForm.client_id == client_profile.id).first():
             db.add(ClientIntakeForm(client_id=client_profile.id, form_type="initial_assessment", responses={"q1": "Moderate anxiety", "q2": "Sleep issues", "q3": "Work stress"}, completed_at=utc_now() - timedelta(days=90)))
-        if not db.query(ClientAssessment).filter(ClientAssessment.client_id == client_profile.id).first():
+        if client_profile and not db.query(ClientAssessment).filter(ClientAssessment.client_id == client_profile.id).first():
             db.add(ClientAssessment(client_id=client_profile.id, assessment_type="GAD-7", score=14, responses={"total": 14}, taken_at=utc_now() - timedelta(days=30)))
-        if not db.query(ClientConsent).filter(ClientConsent.client_id == client_profile.id).first():
+        if client_profile and not db.query(ClientConsent).filter(ClientConsent.client_id == client_profile.id).first():
             db.add(ClientConsent(client_id=client_profile.id, consent_type="telehealth", version="v2.1", accepted=True, accepted_at=utc_now() - timedelta(days=90), ip_address="182.0.1.45"))
             db.flush()
             print("✅ All Client-related records created")
 
         # ===================================================================
-        # 5. EXECUTIVE MODULE
+        # 6. EXECUTIVE MODULE
         # ===================================================================
         exec_profile = db.query(ExecutiveProfile).filter(ExecutiveProfile.user_id == executive.id).first()
         if exec_profile and not db.query(ExecutivePermission).filter(ExecutivePermission.executive_id == exec_profile.id).first():
@@ -575,7 +878,7 @@ def load_dummy_data():
             print("✅ ClinicStaff + ClinicAnnouncement created")
 
         # ===================================================================
-        # 6. AUTH & SECURITY MODULE
+        # 7. AUTH & SECURITY MODULE
         # ===================================================================
         if not db.query(SystemSetting).filter(SystemSetting.key == "platform_name").first():
             settings = [
@@ -634,7 +937,7 @@ def load_dummy_data():
             print("✅ BlacklistedToken + UserMFABackupCode created")
 
         # ===================================================================
-        # 7. AUDIT & ACTIVITY LOGS
+        # 8. AUDIT & ACTIVITY LOGS
         # ===================================================================
         if not db.query(AdminActivityLog).filter(AdminActivityLog.performed_by_id == super_admin.id).first():
             db.add(AdminActivityLog(
@@ -662,7 +965,7 @@ def load_dummy_data():
             print("✅ AuditLog created")
 
         # ===================================================================
-        # 8. OPTIONAL WAITLIST / INVITE
+        # 9. OPTIONAL WAITLIST / INVITE
         # ===================================================================
         if not db.query(ProviderWaitlist).first():
             db.add(ProviderWaitlist(
@@ -704,7 +1007,7 @@ if __name__ == "__main__":
     reset_database_completely()
     print("Dropping ALL existing tables...")
     Base.metadata.drop_all(bind=engine)
-    print("Creating ALL tables from current models (this includes the new profile_picture_url columns)...")
+    print("Creating ALL tables from current models...")
     Base.metadata.create_all(bind=engine)
     print("Tables successfully recreated.\n")
 

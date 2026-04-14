@@ -142,3 +142,56 @@ class AuthService:
         user.password_reset_expiry = None
         user.password_changed_at = datetime.now(timezone.utc)
         db.commit()
+    
+import secrets
+import pyotp
+from datetime import datetime, timezone
+from app.core.email import EmailService   
+class AuthService:
+    @staticmethod
+    async def request_password_reset(db: Session, email: str):
+        user = db.query(User).filter(User.email == email).first()
+        if not user:
+            # For security, don't reveal if the email exists
+            return {"message": "If this email exists, a reset link has been sent."}
+
+        token = secrets.token_urlsafe(32)
+        user.password_reset_token = token
+        user.password_reset_expiry = datetime.now(timezone.utc) + timedelta(hours=1)
+        db.commit()
+
+        await EmailService.send_password_reset_email(user.email, token)
+        return {"message": "Reset link sent."}
+
+    @staticmethod
+    async def reset_password(db: Session, token: str, new_password: str):
+        user = db.query(User).filter(
+            User.password_reset_token == token,
+            User.password_reset_expiry > datetime.now(timezone.utc)
+        ).first()
+
+        if not user:
+            raise HTTPException(status_code=400, detail="Invalid or expired token")
+
+        user.hashed_password = get_password_hash(new_password)
+        user.password_reset_token = None # Clear token
+        user.password_reset_expiry = None
+        user.password_changed_at = datetime.now(timezone.utc)
+        db.commit()
+        return {"message": "Password updated successfully."}
+    @staticmethod
+    def generate_mfa_secret(user: User):
+        # Generate a random secret for the user
+        secret = pyotp.random_base32()
+        # Create a provisioning URI for QR codes
+        uri = pyotp.totp.TOTP(secret).provisioning_uri(
+            name=user.email, 
+            issuer_name="BTT Platform"
+        )
+        return secret, uri
+
+    @staticmethod
+    def verify_mfa_code(secret: str, code: str):
+        totp = pyotp.totp.TOTP(secret)
+        return totp.verify(code)
+
