@@ -18,7 +18,6 @@ def utc_now() -> datetime:
 class UserRole(str, enum.Enum):
     SUPER_ADMIN = "super_admin"
     ADMIN = "admin"
-    EXECUTIVE = "executive"
     PROVIDER = "provider"
     CLIENT = "client"
 
@@ -95,7 +94,6 @@ class User(Base):
         "AdminProfile", back_populates="user", uselist=False, cascade="all, delete-orphan"
     )
 
-
     provider_registration: Mapped[Optional["ProviderRegistration"]] = relationship(
         "ProviderRegistration",
         back_populates="user",
@@ -114,7 +112,7 @@ class User(Base):
         "ProviderLicense",
         back_populates="user",
         cascade="all, delete-orphan",
-        foreign_keys="[ProviderLicense.user_id]" # Explicitly use user_id, not verified_by
+        foreign_keys="[ProviderLicense.user_id]"
     )
     documents: Mapped[List["ProviderDocument"]] = relationship(
         "ProviderDocument", 
@@ -122,6 +120,7 @@ class User(Base):
         cascade="all, delete-orphan",
         foreign_keys="[ProviderDocument.user_id]"
     )
+
     def __repr__(self) -> str:
         return f"<User {self.email} ({self.role.value})>"
 
@@ -141,7 +140,6 @@ class AdminProfile(Base):
     notes: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
     last_admin_activity_at: Mapped[Optional[datetime]] = mapped_column(DateTime(timezone=True), nullable=True)
 
-    # Added as requested
     profile_picture_url: Mapped[Optional[str]] = mapped_column(String(500), nullable=True)
 
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utc_now, nullable=False)
@@ -150,59 +148,6 @@ class AdminProfile(Base):
     )
 
     user: Mapped["User"] = relationship("User", back_populates="admin_profile")
-
-
-
-
-# class ProviderProfile(Base):
-#     __tablename__ = "provider_profiles"
-
-#     id: Mapped[UUID] = mapped_column(PG_UUID(as_uuid=True), primary_key=True, default=uuid4)
-#     user_id: Mapped[UUID] = mapped_column(
-#         PG_UUID(as_uuid=True), ForeignKey("users.id", ondelete="CASCADE"), unique=True, nullable=False
-#     )
-
-#     professional_title: Mapped[str] = mapped_column(String(100), nullable=False)
-#     years_of_experience: Mapped[Optional[int]] = mapped_column(Integer, nullable=True)
-#     bio: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
-#     specialties: Mapped[Optional[List[str]]] = mapped_column(JSON, nullable=True)
-#     modalities: Mapped[Optional[List[str]]] = mapped_column(JSON, nullable=True)
-#     languages: Mapped[Optional[List[str]]] = mapped_column(JSON, nullable=True)
-#     insurance_accepted: Mapped[Optional[List[str]]] = mapped_column(JSON, nullable=True)
-
-#     office_address: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
-#     latitude: Mapped[Optional[float]] = mapped_column(Float, nullable=True)
-#     longitude: Mapped[Optional[float]] = mapped_column(Float, nullable=True)
-#     timezone: Mapped[Optional[str]] = mapped_column(String(50), nullable=True)
-
-#     subdomain_slug: Mapped[Optional[str]] = mapped_column(String(50), unique=True, nullable=True, index=True)
-
-#     phone_number_masked: Mapped[Optional[str]] = mapped_column(String(20), nullable=True)
-#     accepting_new_clients: Mapped[bool] = mapped_column(Boolean, default=True, nullable=False)
-#     is_published: Mapped[bool] = mapped_column(Boolean, default=False, nullable=False)
-#     publish_requested_at: Mapped[Optional[datetime]] = mapped_column(DateTime(timezone=True), nullable=True)
-#     profile_status: Mapped[str] = mapped_column(String(20), default="draft", nullable=False) # draft, pending, published
-#     published_at: Mapped[Optional[datetime]] = mapped_column(DateTime(timezone=True), nullable=True)
-#     average_rating: Mapped[Optional[float]] = mapped_column(Float, default=0.0, nullable=True)
-#     total_reviews: Mapped[int] = mapped_column(Integer, default=0, nullable=False)
-
-#     subscription_tier: Mapped[Optional[str]] = mapped_column(String(50), nullable=True)
-
-#     # Added as requested
-#     profile_picture_url: Mapped[Optional[str]] = mapped_column(String(500), nullable=True)
-
-#     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utc_now, nullable=False)
-#     updated_at: Mapped[datetime] = mapped_column(
-#         DateTime(timezone=True), default=utc_now, onupdate=utc_now, nullable=False
-#     )
-
-#     user: Mapped["User"] = relationship("User", back_populates="provider_profile")
-
-#     education: Mapped[list["ProviderEducation"]] = relationship(
-#         "ProviderEducation",
-#         back_populates="provider_profile",
-#         cascade="all, delete-orphan"
-#     )
 
 
 class ClientProfile(Base):
@@ -227,7 +172,6 @@ class ClientProfile(Base):
     referral_source: Mapped[Optional[str]] = mapped_column(String(100), nullable=True)
     total_sessions: Mapped[int] = mapped_column(Integer, default=0, nullable=False)
 
-    # Added as requested
     profile_picture_url: Mapped[Optional[str]] = mapped_column(String(500), nullable=True)
 
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utc_now, nullable=False)
@@ -236,6 +180,7 @@ class ClientProfile(Base):
     )
 
     user: Mapped["User"] = relationship("User", back_populates="client_profile")
+
 class AuditLog(Base):
     __tablename__ = "audit_logs"
 

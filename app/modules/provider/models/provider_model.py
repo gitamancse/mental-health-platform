@@ -118,6 +118,12 @@ class ProviderProfile(Base):
     )
     subscriptions: Mapped[List["ProviderSubscription"]] = relationship("ProviderSubscription", back_populates="provider")
 
+    education: Mapped[List["ProviderEducation"]] = relationship(
+        "ProviderEducation",
+        back_populates="provider_profile",
+        cascade="all, delete-orphan"
+    )
+
 class ProviderAvailability(Base):
     __tablename__ = "provider_availabilities"
 

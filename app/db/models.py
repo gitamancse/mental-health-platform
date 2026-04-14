@@ -34,25 +34,25 @@ from app.modules.provider.models.provider_model import (
 
 from app.modules.provider.models.provider_registration import ProviderRegistration
 
-# ── Client Module ────────────────────────────────────────────────────────────
-from app.modules.client.models.client_model import (
-    ClientProfile,
-    ClientSubscription,
-    ClientIntakeForm,
-    ClientAssessment,
-    ClientConsent,
-    ClientPreference,
-    ClientMedicalHistory,
-    ClientTherapySession,
-    ClientNote,
-    ClientGoal,
-    ClientProgress,
-    ClientJournalEntry,
-    ClientAppointment,
-    ClientMedication,
-    ClientAllergy,
-    ClientDocument,
-)
+# # ── Client Module ────────────────────────────────────────────────────────────
+# from app.modules.client.models.client_model import (
+#     ClientProfile,
+#     ClientSubscription,
+#     ClientIntakeForm,
+#     ClientAssessment,
+#     ClientConsent,
+#     ClientPreference,
+#     ClientMedicalHistory,
+#     ClientTherapySession,
+#     ClientNote,
+#     ClientGoal,
+#     ClientProgress,
+#     ClientJournalEntry,
+#     ClientAppointment,
+#     ClientMedication,
+#     ClientAllergy,
+#     ClientDocument,
+# )
 
 # This ensures Base.metadata includes everything
 __all__ = [
@@ -68,3 +68,4 @@ __all__ = [
     "ClientMedication", "ClientAllergy", "ClientDocument",
     "BlacklistedToken",
 ]
+

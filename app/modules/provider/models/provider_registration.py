@@ -118,5 +118,5 @@ class ProviderRegistration(Base):
     # The admin who reviewed it
     reviewed_by_user: Mapped[Optional["User"]] = relationship(
         "User", 
-        foreign_keys=[reviewed_by] # <--- ADD THIS
+        foreign_keys=[reviewed_by]
     )

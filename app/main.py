@@ -11,8 +11,8 @@ from datetime import datetime
 from pathlib import Path
 
 from app.core.config import settings
-# from app.db.session import engine
-# from app.db.base import Base
+from app.db.session import engine
+from app.db.base import Base
 
 import app.db.models  # triggers all model imports for Alembic
 
@@ -24,9 +24,9 @@ from app.modules.provider.routers.provider_router import provider_router
 # from app.modules.provider.routers.education_router import education_router
 from app.modules.provider.routers.registration_router import router as provider_registration_router
 from app.modules.provider.routers.admin_router import router as admin_provider_router
-from app.modules.client.routers.client_router import client_router
+# from app.modules.client.routers.client_router import client_router
 
-# Base.metadata.create_all(bind=engine)
+Base.metadata.create_all(bind=engine)
 
 tags_metadata = []
 
@@ -88,11 +88,11 @@ if getattr(settings, "ENABLE_PROVIDER_ROUTERS", True):
         {"name": "Admin - Provider Management", "description": "Admin approvals, rejections, audit logs"},
     ])
 
-if getattr(settings, "ENABLE_CLIENT_ROUTERS", True):
-    tags_metadata.append({
-        "name": "Client",
-        "description": "Client profiles, intake forms, therapy sessions"
-    })
+# if getattr(settings, "ENABLE_CLIENT_ROUTERS", True):
+#     tags_metadata.append({
+#         "name": "Client",
+#         "description": "Client profiles, intake forms, therapy sessions"
+#     })
 
 
 class ErrorNotificationMiddleware(BaseHTTPMiddleware):
@@ -160,11 +160,11 @@ if getattr(settings, "ENABLE_PROVIDER_ROUTERS", True):
     #     prefix="/api/provider/education",
     #     tags=["Provider|Education"]
     # )
-    app.include_router(provider_registration_router, prefix="/api", tags=["Provider Onboarding"])
-    app.include_router(admin_provider_router, prefix="/api", tags=["Admin - Provider Management"])
+    app.include_router(provider_registration_router, prefix="/api", tags=["Provider|Provider Onboarding"])
+    app.include_router(admin_provider_router, prefix="/api", tags=["Provider|Admin - Provider Management"])
 
-if getattr(settings, "ENABLE_CLIENT_ROUTERS", True):
-    app.include_router(client_router, prefix="/api/client", tags=["Client"])
+# if getattr(settings, "ENABLE_CLIENT_ROUTERS", True):
+#     app.include_router(client_router, prefix="/api/client", tags=["Client"])
 
 @app.get("/docs", include_in_schema=False)
 async def custom_swagger_ui_html():

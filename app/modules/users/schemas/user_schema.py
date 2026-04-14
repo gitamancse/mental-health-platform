@@ -3,24 +3,15 @@ from datetime import datetime
 from typing import Optional, List
 from uuid import UUID
 
-from pydantic import BaseModel, EmailStr, Field, field_validator, model_validator, ConfigDict
+from pydantic import BaseModel, EmailStr, Field, ConfigDict
 
 from app.modules.users.models.user_model import UserRole, AccountStatus
 from app.modules.auth.schemas.auth_schema import LicenseCreate
+from pydantic import BaseModel, EmailStr, Field, field_validator, model_validator, ConfigDict
+
 
 
 # ====================== PROFILE RESPONSES ======================
-class ExecutiveProfileResponse(BaseModel):
-    executive_title: Optional[str] = None
-    department: Optional[str] = None
-    organization_name: Optional[str] = None
-    permissions: Optional[List[str]] = None
-    notes: Optional[str] = None
-    profile_picture_url: Optional[str] = None
-
-    model_config = ConfigDict(from_attributes=True)
-
-
 class ProviderProfileResponse(BaseModel):
     professional_title: str
     years_of_experience: Optional[int] = None
@@ -127,7 +118,6 @@ class UserDetailResponse(BaseModel):
     provider_profile: Optional[ProviderProfileResponse] = None
     client_profile: Optional[ClientProfileResponse] = None
     admin_profile: Optional[AdminProfileResponse] = None
-    executive_profile: Optional[ExecutiveProfileResponse] = None
 
     licenses: List[ProviderLicenseResponse] = Field(default_factory=list)
     documents: List[ProviderDocumentResponse] = Field(default_factory=list)

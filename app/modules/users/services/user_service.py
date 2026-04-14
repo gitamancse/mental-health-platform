@@ -11,7 +11,6 @@ from app.modules.auth.services.auth_service import AuthService
 from app.modules.users.models.user_model import (
     User, UserRole, AccountStatus, AuditLog, AdminActivityLog
 )
-   # Correct import
 
 from app.modules.users.schemas.user_schema import (
     UserUpdateRequest, ProviderProfileUpdateRequest,
@@ -56,7 +55,7 @@ def log_admin_activity(
     details: Optional[dict] = None,
     ip_address: Optional[str] = None,
 ) -> None:
-    if performed_by.role not in (UserRole.SUPER_ADMIN, UserRole.ADMIN, UserRole.EXECUTIVE):
+    if performed_by.role not in (UserRole.SUPER_ADMIN, UserRole.ADMIN):
         return
     activity = AdminActivityLog(
         performed_by_id=performed_by.id,
@@ -94,8 +93,6 @@ def get_user_by_id(db: Session, user_id: UUID, current_user: User) -> User:
         return user
     if current_user.role == UserRole.ADMIN and user.role != UserRole.SUPER_ADMIN:
         return user
-    if current_user.role == UserRole.EXECUTIVE and user.id != current_user.id:
-        raise HTTPException(status_code=403, detail="Insufficient permissions")
     if user.id != current_user.id:
         raise HTTPException(status_code=403, detail="Insufficient permissions")
 
@@ -131,6 +128,7 @@ def list_users(
     total = query.count()
     users = query.order_by(User.created_at.desc()).offset(skip).limit(limit).all()
     return users, total
+
 
 def update_user_basic(
     db: Session, current_user: User, payload: UserUpdateRequest
@@ -260,7 +258,6 @@ def change_password(
     db.commit()
     db.refresh(user)
     return user
-
 
 
 def update_user_status(
