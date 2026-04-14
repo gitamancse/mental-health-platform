@@ -76,3 +76,26 @@ async def get_optional_current_user(
         return await get_current_user(token, db)
     except HTTPException:
         return None
+from fastapi import Depends, HTTPException, status
+from app.modules.users.models.user_model import User, UserRole
+# Import your existing get_current_user dependency
+
+async def get_current_admin_user(current_user: User = Depends(get_current_user)):
+    """
+    Security dependency to ensure the logged-in user has Admin privileges.
+    Used to protect sensitive healthcare administrative routes.
+    """
+    if current_user.role not in [UserRole.ADMIN, UserRole.SUPER_ADMIN]:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail=
+            "Access denied. Administrative privileges required."
+        )
+    
+    if not current_user.is_active or current_user.deleted_at is not None:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Admin account is inactive or disabled."
+        )
+        
+    return current_user

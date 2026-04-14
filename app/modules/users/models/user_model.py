@@ -96,8 +96,6 @@ class User(Base):
     )
 
 
-<<<<<<< Updated upstream
-=======
     provider_registration: Mapped[Optional["ProviderRegistration"]] = relationship(
         "ProviderRegistration",
         back_populates="user",
@@ -124,7 +122,6 @@ class User(Base):
         cascade="all, delete-orphan",
         foreign_keys="[ProviderDocument.user_id]"
     )
->>>>>>> Stashed changes
     def __repr__(self) -> str:
         return f"<User {self.email} ({self.role.value})>"
 
@@ -180,15 +177,6 @@ class AdminProfile(Base):
 
 #     subdomain_slug: Mapped[Optional[str]] = mapped_column(String(50), unique=True, nullable=True, index=True)
 
-<<<<<<< Updated upstream
-    phone_number_masked: Mapped[Optional[str]] = mapped_column(String(20), nullable=True)
-    accepting_new_clients: Mapped[bool] = mapped_column(Boolean, default=True, nullable=False)
-    is_published: Mapped[bool] = mapped_column(Boolean, default=False, nullable=False)
-    publish_requested_at: Mapped[Optional[datetime]] = mapped_column(DateTime(timezone=True), nullable=True)
-
-    average_rating: Mapped[Optional[float]] = mapped_column(Float, default=0.0, nullable=True)
-    total_reviews: Mapped[int] = mapped_column(Integer, default=0, nullable=False)
-=======
 #     phone_number_masked: Mapped[Optional[str]] = mapped_column(String(20), nullable=True)
 #     accepting_new_clients: Mapped[bool] = mapped_column(Boolean, default=True, nullable=False)
 #     is_published: Mapped[bool] = mapped_column(Boolean, default=False, nullable=False)
@@ -197,7 +185,6 @@ class AdminProfile(Base):
 #     published_at: Mapped[Optional[datetime]] = mapped_column(DateTime(timezone=True), nullable=True)
 #     average_rating: Mapped[Optional[float]] = mapped_column(Float, default=0.0, nullable=True)
 #     total_reviews: Mapped[int] = mapped_column(Integer, default=0, nullable=False)
->>>>>>> Stashed changes
 
 #     subscription_tier: Mapped[Optional[str]] = mapped_column(String(50), nullable=True)
 
@@ -249,11 +236,6 @@ class ClientProfile(Base):
     )
 
     user: Mapped["User"] = relationship("User", back_populates="client_profile")
-<<<<<<< Updated upstream
-
-
-=======
->>>>>>> Stashed changes
 class AuditLog(Base):
     __tablename__ = "audit_logs"
 
