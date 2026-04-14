@@ -21,6 +21,7 @@ from app.modules.users.models.user_model import (
 # ── Provider Module ─────────────────────────────────────────────────────────
 from app.modules.provider.models.provider_model import (
     ProviderAvailability,
+    ProviderProfile,
     ProviderBlockedTime,
     ProviderReview,
     ProviderSubscription,
@@ -30,7 +31,7 @@ from app.modules.provider.models.provider_model import (
     ProviderDocument,
     ProviderLicense,
 )
-from app.modules.provider.models.education_model import ProviderEducation
+
 from app.modules.provider.models.provider_registration import ProviderRegistration
 
 # ── Client Module ────────────────────────────────────────────────────────────
