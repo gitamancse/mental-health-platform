@@ -2,7 +2,7 @@
 from datetime import datetime, timezone
 from uuid import UUID, uuid4
 from typing import Optional, List
-from sqlalchemy import String, Boolean, DateTime, ForeignKey, Enum, Text, JSON, Float, Integer
+from sqlalchemy import String, Boolean, DateTime, UniqueConstraint, ForeignKey, Enum, Text, JSON, Float, Integer
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 from sqlalchemy.dialects.postgresql import UUID as PG_UUID
 
@@ -17,18 +17,19 @@ class ProviderProfile(Base):
 
     __tablename__ = "provider_profiles"
 
-    id: Mapped[UUID] = mapped_column(
-        PG_UUID(as_uuid=True), primary_key=True, default=uuid4, index=True
+    id: Mapped[UUID] = mapped_column(PG_UUID(as_uuid=True), primary_key=True, default=uuid4)
+    user_id: Mapped[UUID] = mapped_column(
+        PG_UUID(as_uuid=True), ForeignKey("users.id", ondelete="CASCADE"), nullable=False
     )
 
     # Foreign key to users table
-    user_id: Mapped[UUID] = mapped_column(
-        PG_UUID(as_uuid=True),
-        ForeignKey("users.id", ondelete="CASCADE"),
-        unique=True,
-        nullable=False,
-        index=True
-    )
+    # user_id: Mapped[UUID] = mapped_column(
+    #     PG_UUID(as_uuid=True),
+    #     ForeignKey("users.id", ondelete="CASCADE"),
+    #     unique=True,
+    #     nullable=False,
+    #     index=True
+    # )
 
     # Basic professional information
     professional_title: Mapped[str] = mapped_column(String(100), nullable=False)
@@ -93,11 +94,28 @@ class ProviderProfile(Base):
     updated_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), default=utc_now, onupdate=utc_now, nullable=False
     )
-
+    verified_by: Mapped[Optional[UUID]] = mapped_column(PG_UUID(as_uuid=True), ForeignKey("users.id"), nullable=True)
     # Relationships
-    user: Mapped["User"] = relationship("User", back_populates="provider_profile")
-    licenses: Mapped[List["ProviderLicense"]] = relationship("ProviderLicense", back_populates="user")
-    documents: Mapped[List["ProviderDocument"]] = relationship("ProviderDocument", back_populates="user")
+    user: Mapped["User"] = relationship(
+        "User", 
+        back_populates="provider_profile", 
+        foreign_keys=[user_id] 
+    )
+    # user: Mapped["User"] = relationship("User", back_populates="provider_profile")
+    # licenses: Mapped[List["ProviderLicense"]] = relationship("ProviderLicense", back_populates="user")
+    licenses: Mapped[List["ProviderLicense"]] = relationship(
+        "ProviderLicense",
+        primaryjoin="ProviderProfile.user_id == ProviderLicense.user_id",
+        foreign_keys="[ProviderLicense.user_id]",
+        viewonly=True  # Recommended because the 'User' model owns the data entry
+    )
+    # documents: Mapped[List["ProviderDocument"]] = relationship("ProviderDocument", back_populates="user")
+    documents: Mapped[List["ProviderDocument"]] = relationship(
+        "ProviderDocument",
+        primaryjoin="ProviderProfile.user_id == ProviderDocument.user_id",
+        foreign_keys="[ProviderDocument.user_id]",
+        viewonly=True
+    )
     subscriptions: Mapped[List["ProviderSubscription"]] = relationship("ProviderSubscription", back_populates="provider")
 
 class ProviderAvailability(Base):
@@ -216,25 +234,38 @@ class ProviderLicense(Base):
 
     id: Mapped[UUID] = mapped_column(PG_UUID(as_uuid=True), primary_key=True, default=uuid4)
     user_id: Mapped[UUID] = mapped_column(
-        PG_UUID(as_uuid=True),
-        ForeignKey("users.id", ondelete="CASCADE"),
-        nullable=False,
+        PG_UUID(as_uuid=True), ForeignKey("users.id", ondelete="CASCADE"), nullable=False
     )
-
+    
     license_number: Mapped[str] = mapped_column(String(100), nullable=False)
+    license_type: Mapped[str] = mapped_column(String(50), nullable=False) 
     state: Mapped[str] = mapped_column(String(2), nullable=False)
-    expiry_date: Mapped[Optional[datetime]] = mapped_column(DateTime(timezone=True), nullable=True)
-    is_verified: Mapped[bool] = mapped_column(Boolean, default=False, nullable=False)
-    verified_at: Mapped[Optional[datetime]] = mapped_column(DateTime(timezone=True), nullable=True)
-    verified_by: Mapped[Optional[UUID]] = mapped_column(
-        PG_UUID(as_uuid=True), ForeignKey("users.id"), nullable=True
+    expiry_date: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
+    
+    status: Mapped[str] = mapped_column(String(20), default="pending") 
+    admin_proof_url: Mapped[Optional[str]] = mapped_column(String(500))
+    
+    verified_at: Mapped[Optional[datetime]] = mapped_column(DateTime(timezone=True))
+    verified_by: Mapped[Optional[UUID]] = mapped_column(PG_UUID(as_uuid=True), ForeignKey("users.id"))
+    
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utc_now)
+
+    # Relationship back to User
+    user: Mapped["User"] = relationship(
+        "User", 
+        back_populates="licenses",
+        # Explicitly tell SQLAlchemy to use the 'user_id' column here too
+        foreign_keys=[user_id] 
     )
-
-    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utc_now, nullable=False)
-
-    user: Mapped["User"] = relationship("User", back_populates="licenses", foreign_keys=[user_id])
-    verified_by_user: Mapped[Optional["User"]] = relationship("User", foreign_keys=[verified_by])
-
+    
+    # Optional: If you want a relationship for the admin who verified it
+    verified_by_admin: Mapped[Optional["User"]] = relationship(
+        "User",
+        foreign_keys=[verified_by]
+    )
+    __table_args__ = (
+        UniqueConstraint('user_id', 'state', 'license_number', name='_user_license_uc'),
+    )
 class ProviderDocument(Base):
     __tablename__ = "provider_documents"
 

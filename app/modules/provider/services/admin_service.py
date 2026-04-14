@@ -5,7 +5,8 @@ import logging
 
 from app.modules.provider.models.provider_registration import ProviderRegistration, RegistrationStatus
 from app.modules.provider.models.admin_action import AdminAction, ActionType
-from app.modules.users.models.user_model import User, ProviderProfile, AccountStatus
+from app.modules.users.models.user_model import User, AccountStatus
+from app.modules.provider.models.provider_model import ProviderProfile
 from uuid import UUID
 logger = logging.getLogger(__name__)
 

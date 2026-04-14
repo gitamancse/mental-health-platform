@@ -11,7 +11,8 @@ conf = ConnectionConfig(
     MAIL_STARTTLS=True,
     MAIL_SSL_TLS=False,
     USE_CREDENTIALS=True,
-    VALIDATE_CERTS=False # Set to True in production for HIPAA security
+
+    VALIDATE_CERTS=True # Set to True in production for HIPAA security
 )
 
 class EmailService:

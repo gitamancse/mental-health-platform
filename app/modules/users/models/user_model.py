@@ -80,14 +80,13 @@ class User(Base):
     )
     deleted_at: Mapped[Optional[datetime]] = mapped_column(DateTime(timezone=True), nullable=True)
 
-    # Multi-tenancy foundation
-    organization_id: Mapped[Optional[UUID]] = mapped_column(
-        PG_UUID(as_uuid=True), ForeignKey("organizations.id", ondelete="SET NULL"), nullable=True, index=True
-    )
-
     # Relationships
     provider_profile: Mapped[Optional["ProviderProfile"]] = relationship(
-        "ProviderProfile", back_populates="user", uselist=False, cascade="all, delete-orphan"
+        "ProviderProfile", 
+        back_populates="user", 
+        uselist=False, 
+        cascade="all, delete-orphan",
+        foreign_keys="[ProviderProfile.user_id]" 
     )
     client_profile: Mapped[Optional["ClientProfile"]] = relationship(
         "ClientProfile", back_populates="user", uselist=False, cascade="all, delete-orphan"
@@ -95,30 +94,14 @@ class User(Base):
     admin_profile: Mapped[Optional["AdminProfile"]] = relationship(
         "AdminProfile", back_populates="user", uselist=False, cascade="all, delete-orphan"
     )
-    executive_profile: Mapped[Optional["ExecutiveProfile"]] = relationship(
-        "ExecutiveProfile", back_populates="user", uselist=False, cascade="all, delete-orphan"
-    )
 
-    organization_members: Mapped[List["OrganizationMember"]] = relationship(
-        "OrganizationMember", back_populates="user", cascade="all, delete-orphan"
-    )
-
-    licenses: Mapped[List["ProviderLicense"]] = relationship(
-        "ProviderLicense",
-        back_populates="user",
-        cascade="all, delete-orphan",
-        foreign_keys="ProviderLicense.user_id",
-    )
-    documents: Mapped[List["ProviderDocument"]] = relationship(
-        "ProviderDocument", back_populates="user", cascade="all, delete-orphan"
-    )
 
     provider_registration: Mapped[Optional["ProviderRegistration"]] = relationship(
         "ProviderRegistration",
         back_populates="user",
         uselist=False,
         cascade="all, delete-orphan",
-        foreign_keys="ProviderRegistration.user_id"
+        foreign_keys="[ProviderRegistration.user_id]"
     )
 
     admin_actions_performed: Mapped[List["AdminAction"]] = relationship(
@@ -127,7 +110,18 @@ class User(Base):
     admin_actions_received: Mapped[List["AdminAction"]] = relationship(
         "AdminAction", back_populates="target_user", foreign_keys="AdminAction.user_id"
     )
-
+    licenses: Mapped[List["ProviderLicense"]] = relationship(
+        "ProviderLicense",
+        back_populates="user",
+        cascade="all, delete-orphan",
+        foreign_keys="[ProviderLicense.user_id]" # Explicitly use user_id, not verified_by
+    )
+    documents: Mapped[List["ProviderDocument"]] = relationship(
+        "ProviderDocument", 
+        back_populates="user", 
+        cascade="all, delete-orphan",
+        foreign_keys="[ProviderDocument.user_id]"
+    )
     def __repr__(self) -> str:
         return f"<User {self.email} ({self.role.value})>"
 
@@ -158,80 +152,57 @@ class AdminProfile(Base):
     user: Mapped["User"] = relationship("User", back_populates="admin_profile")
 
 
-class ExecutiveProfile(Base):
-    __tablename__ = "executive_profiles"
-
-    id: Mapped[UUID] = mapped_column(PG_UUID(as_uuid=True), primary_key=True, default=uuid4)
-    user_id: Mapped[UUID] = mapped_column(
-        PG_UUID(as_uuid=True), ForeignKey("users.id", ondelete="CASCADE"), unique=True, nullable=False
-    )
-
-    executive_title: Mapped[Optional[str]] = mapped_column(String(100), nullable=True)
-    department: Mapped[Optional[str]] = mapped_column(String(100), nullable=True)
-    organization_name: Mapped[Optional[str]] = mapped_column(String(200), nullable=True)
-    permissions: Mapped[Optional[List[str]]] = mapped_column(JSON, nullable=True)
-    notes: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
-
-    # Added as requested
-    profile_picture_url: Mapped[Optional[str]] = mapped_column(String(500), nullable=True)
-
-    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utc_now, nullable=False)
-    updated_at: Mapped[datetime] = mapped_column(
-        DateTime(timezone=True), default=utc_now, onupdate=utc_now, nullable=False
-    )
-
-    user: Mapped["User"] = relationship("User", back_populates="executive_profile")
 
 
-class ProviderProfile(Base):
-    __tablename__ = "provider_profiles"
+# class ProviderProfile(Base):
+#     __tablename__ = "provider_profiles"
 
-    id: Mapped[UUID] = mapped_column(PG_UUID(as_uuid=True), primary_key=True, default=uuid4)
-    user_id: Mapped[UUID] = mapped_column(
-        PG_UUID(as_uuid=True), ForeignKey("users.id", ondelete="CASCADE"), unique=True, nullable=False
-    )
+#     id: Mapped[UUID] = mapped_column(PG_UUID(as_uuid=True), primary_key=True, default=uuid4)
+#     user_id: Mapped[UUID] = mapped_column(
+#         PG_UUID(as_uuid=True), ForeignKey("users.id", ondelete="CASCADE"), unique=True, nullable=False
+#     )
 
-    professional_title: Mapped[str] = mapped_column(String(100), nullable=False)
-    years_of_experience: Mapped[Optional[int]] = mapped_column(Integer, nullable=True)
-    bio: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
-    specialties: Mapped[Optional[List[str]]] = mapped_column(JSON, nullable=True)
-    modalities: Mapped[Optional[List[str]]] = mapped_column(JSON, nullable=True)
-    languages: Mapped[Optional[List[str]]] = mapped_column(JSON, nullable=True)
-    insurance_accepted: Mapped[Optional[List[str]]] = mapped_column(JSON, nullable=True)
+#     professional_title: Mapped[str] = mapped_column(String(100), nullable=False)
+#     years_of_experience: Mapped[Optional[int]] = mapped_column(Integer, nullable=True)
+#     bio: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
+#     specialties: Mapped[Optional[List[str]]] = mapped_column(JSON, nullable=True)
+#     modalities: Mapped[Optional[List[str]]] = mapped_column(JSON, nullable=True)
+#     languages: Mapped[Optional[List[str]]] = mapped_column(JSON, nullable=True)
+#     insurance_accepted: Mapped[Optional[List[str]]] = mapped_column(JSON, nullable=True)
 
-    office_address: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
-    latitude: Mapped[Optional[float]] = mapped_column(Float, nullable=True)
-    longitude: Mapped[Optional[float]] = mapped_column(Float, nullable=True)
-    timezone: Mapped[Optional[str]] = mapped_column(String(50), nullable=True)
+#     office_address: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
+#     latitude: Mapped[Optional[float]] = mapped_column(Float, nullable=True)
+#     longitude: Mapped[Optional[float]] = mapped_column(Float, nullable=True)
+#     timezone: Mapped[Optional[str]] = mapped_column(String(50), nullable=True)
 
-    subdomain_slug: Mapped[Optional[str]] = mapped_column(String(50), unique=True, nullable=True, index=True)
+#     subdomain_slug: Mapped[Optional[str]] = mapped_column(String(50), unique=True, nullable=True, index=True)
 
-    phone_number_masked: Mapped[Optional[str]] = mapped_column(String(20), nullable=True)
-    accepting_new_clients: Mapped[bool] = mapped_column(Boolean, default=True, nullable=False)
-    is_published: Mapped[bool] = mapped_column(Boolean, default=False, nullable=False)
-    publish_requested_at: Mapped[Optional[datetime]] = mapped_column(DateTime(timezone=True), nullable=True)
-    profile_status: Mapped[str] = mapped_column(String(20), default="draft", nullable=False) # draft, pending, published
-    published_at: Mapped[Optional[datetime]] = mapped_column(DateTime(timezone=True), nullable=True)
-    average_rating: Mapped[Optional[float]] = mapped_column(Float, default=0.0, nullable=True)
-    total_reviews: Mapped[int] = mapped_column(Integer, default=0, nullable=False)
+#     phone_number_masked: Mapped[Optional[str]] = mapped_column(String(20), nullable=True)
+#     accepting_new_clients: Mapped[bool] = mapped_column(Boolean, default=True, nullable=False)
+#     is_published: Mapped[bool] = mapped_column(Boolean, default=False, nullable=False)
+#     publish_requested_at: Mapped[Optional[datetime]] = mapped_column(DateTime(timezone=True), nullable=True)
+#     profile_status: Mapped[str] = mapped_column(String(20), default="draft", nullable=False) # draft, pending, published
+#     published_at: Mapped[Optional[datetime]] = mapped_column(DateTime(timezone=True), nullable=True)
+#     average_rating: Mapped[Optional[float]] = mapped_column(Float, default=0.0, nullable=True)
+#     total_reviews: Mapped[int] = mapped_column(Integer, default=0, nullable=False)
 
-    subscription_tier: Mapped[Optional[str]] = mapped_column(String(50), nullable=True)
+#     subscription_tier: Mapped[Optional[str]] = mapped_column(String(50), nullable=True)
 
-    # Added as requested
-    profile_picture_url: Mapped[Optional[str]] = mapped_column(String(500), nullable=True)
+#     # Added as requested
+#     profile_picture_url: Mapped[Optional[str]] = mapped_column(String(500), nullable=True)
 
-    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utc_now, nullable=False)
-    updated_at: Mapped[datetime] = mapped_column(
-        DateTime(timezone=True), default=utc_now, onupdate=utc_now, nullable=False
-    )
+#     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utc_now, nullable=False)
+#     updated_at: Mapped[datetime] = mapped_column(
+#         DateTime(timezone=True), default=utc_now, onupdate=utc_now, nullable=False
+#     )
 
-    user: Mapped["User"] = relationship("User", back_populates="provider_profile")
+#     user: Mapped["User"] = relationship("User", back_populates="provider_profile")
 
-    education: Mapped[list["ProviderEducation"]] = relationship(
-        "ProviderEducation",
-        back_populates="provider_profile",
-        cascade="all, delete-orphan"
-    )
+#     education: Mapped[list["ProviderEducation"]] = relationship(
+#         "ProviderEducation",
+#         back_populates="provider_profile",
+#         cascade="all, delete-orphan"
+#     )
 
 
 class ClientProfile(Base):
@@ -265,59 +236,6 @@ class ClientProfile(Base):
     )
 
     user: Mapped["User"] = relationship("User", back_populates="client_profile")
-
-class ProviderLicense(Base):
-    __tablename__ = "provider_licenses"
-
-    id: Mapped[UUID] = mapped_column(PG_UUID(as_uuid=True), primary_key=True, default=uuid4)
-
-    user_id: Mapped[UUID] = mapped_column(
-        PG_UUID(as_uuid=True),
-        ForeignKey("users.id", ondelete="CASCADE"),
-        nullable=False,
-    )
-
-    license_number: Mapped[str] = mapped_column(String(100), nullable=False)
-    state: Mapped[str] = mapped_column(String(2), nullable=False)
-    expiry_date: Mapped[Optional[datetime]] = mapped_column(DateTime(timezone=True), nullable=True)
-    is_verified: Mapped[bool] = mapped_column(Boolean, default=False, nullable=False)
-    verified_at: Mapped[Optional[datetime]] = mapped_column(DateTime(timezone=True), nullable=True)
-
-    verified_by: Mapped[Optional[UUID]] = mapped_column(
-        PG_UUID(as_uuid=True),
-        ForeignKey("users.id"),
-        nullable=True,
-    )
-
-    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utc_now, nullable=False)
-
-    user: Mapped["User"] = relationship(
-        "User",
-        back_populates="licenses",
-        foreign_keys=[user_id],
-    )
-
-    verified_by_user: Mapped[Optional["User"]] = relationship(
-        "User",
-        foreign_keys=[verified_by],
-    )
-
-class ProviderDocument(Base):
-    __tablename__ = "provider_documents"
-
-    id: Mapped[UUID] = mapped_column(PG_UUID(as_uuid=True), primary_key=True, default=uuid4)
-    user_id: Mapped[UUID] = mapped_column(
-        PG_UUID(as_uuid=True), ForeignKey("users.id", ondelete="CASCADE"), nullable=False
-    )
-
-    file_url: Mapped[str] = mapped_column(String(500), nullable=False)
-    file_type: Mapped[str] = mapped_column(String(50), nullable=False)
-    original_filename: Mapped[str] = mapped_column(String(255), nullable=False)
-    uploaded_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utc_now, nullable=False)
-    verified: Mapped[bool] = mapped_column(Boolean, default=False, nullable=False)
-
-    user: Mapped["User"] = relationship("User", back_populates="documents")
-
 class AuditLog(Base):
     __tablename__ = "audit_logs"
 

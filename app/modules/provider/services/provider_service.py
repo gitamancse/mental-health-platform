@@ -6,11 +6,11 @@ from uuid import UUID
 from fastapi import HTTPException
 from sqlalchemy.orm import Session, joinedload
 
-from app.modules.users.models.user_model import User, UserRole, ProviderProfile
+from app.modules.users.models.user_model import User, UserRole
 from app.modules.provider.models.provider_model import (
     ProviderAvailability, ProviderBlockedTime, ProviderGallery,
     ProviderPublicationRequest, ProviderWaitlist, ProviderReview,
-    ProviderSubscription
+    ProviderSubscription, ProviderProfile
 )
 
 

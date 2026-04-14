@@ -11,32 +11,12 @@ from app.modules.auth.models.auth_model import BlacklistedToken
 from app.modules.users.models.user_model import (
     User,
     AdminProfile,
-    ExecutiveProfile,
-    ProviderProfile,
     ClientProfile,
     AuditLog,
     AdminActivityLog,
     
 )
 
-# ── Organizations (Multi-tenancy) ───────────────────────────────────────────
-from app.modules.organizations.models.organization_model import (
-    Organization,
-    OrganizationMember,
-    OrganizationInvite,
-    OrganizationBillingInfo,
-    OrganizationBranding,
-    OrganizationSetting,
-
-)
-
-# ── Executive Module ────────────────────────────────────────────────────────
-from app.modules.executive.models.executive_model import (
-    ExecutivePermission,
-    ExecutiveActivityLog,
-    ClinicStaff,
-    ClinicAnnouncement,
-)
 
 # ── Provider Module ─────────────────────────────────────────────────────────
 from app.modules.provider.models.provider_model import (
@@ -75,14 +55,12 @@ from app.modules.client.models.client_model import (
 
 # This ensures Base.metadata includes everything
 __all__ = [
-    "User", "AdminProfile", "ExecutiveProfile", "ProviderProfile", "ClientProfile",
-    "AuditLog", "AdminActivityLog",
-    "Organization", "OrganizationMember", "OrganizationInvite",
-    "OrganizationBillingInfo", "OrganizationSetting", "OrganizationBranding",
-    "ExecutivePermission", "ExecutiveActivityLog", "ClinicStaff", "ClinicAnnouncement",
+    "User", "AdminProfile",  "ProviderProfile", "ClientProfile",
+    "AuditLog", "AdminActivityLog","ProviderDocument",
+    "ProviderLicense",
+    
     "ProviderAvailability", "ProviderBlockedTime", "ProviderReview", "ProviderSubscription",
-    "ProviderPublicationRequest", "ProviderGallery", "ProviderWaitlist", "ProviderDocument",
-    "ProviderLicense", "ProviderEducation", "ProviderRegistration",
+    "ProviderPublicationRequest", "ProviderGallery", "ProviderWaitlist", "ProviderEducation", "ProviderRegistration",
     "ClientSubscription", "ClientIntakeForm", "ClientAssessment", "ClientConsent",
     "ClientPreference", "ClientMedicalHistory", "ClientTherapySession", "ClientNote",
     "ClientGoal", "ClientProgress", "ClientJournalEntry", "ClientAppointment",

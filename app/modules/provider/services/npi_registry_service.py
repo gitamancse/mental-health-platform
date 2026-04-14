@@ -13,7 +13,7 @@ class NPIRegistryService:
     NPPES_URL = "https://npiregistry.cms.hhs.gov/api/"
 
     @staticmethod
-    async def verify_npi_data(npi: str, first_name: str, last_name: str) -> Tuple[bool, str]:
+    async def verify_npi_data(npi: str, first_name: str, last_name: str, npi_type: str) -> Tuple[bool, str]:
         """
         Calls the NPPES API to verify:
         1. The NPI exists.
@@ -25,7 +25,7 @@ class NPIRegistryService:
         params = {
             "number": npi,
             "version": "2.1",
-            "enumeration_type": "NPI-1"  # NPI-1 is for individual practitioners
+            "enumeration_type": npi_type  # NPI-1 is for individual practitioners
         }
 
         async with httpx.AsyncClient(timeout=10.0) as client:
