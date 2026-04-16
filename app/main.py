@@ -23,7 +23,7 @@ from app.modules.users.routers.user_router import user_router
 from app.modules.provider.routers.provider_router import provider_router
 # from app.modules.provider.routers.education_router import education_router
 from app.modules.provider.routers.registration_router import router as provider_registration_router
-from app.modules.provider.routers.admin_router import router as admin_provider_router
+from app.modules.admin.routers.admin_router import router as admin_provider_router
 # from app.modules.client.routers.client_router import client_router
 
 Base.metadata.create_all(bind=engine)
